@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://gw.alipayobjects.com/os/lib/antv/g6/5.0.0-beta.4/dist/g6.min.js"></script>
+  <style>
+    #container { width: 100%; height: 600px; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <script>
+    console.log('G6',)
+    // 注册自定义流动边
+    G6.registerEdge('flow-edge', {
+      afterDraw(cfg, group) {
+        const shape = group.get('children')[0];
+        if (!shape) return;
+        
+        // 存储动画实例
+        shape._animation = shape.animate(
+          { lineDashOffset: -20 },
+          { repeat: true, duration: 2000, paused: true } // 初始暂停状态
+        );
+      }
+    });
+
+    // 初始化图实例
+    const graph = new G6.Graph({
+      container: 'container',
+      layout: {
+        type: 'dagre',
+        rankdir: 'LR',
+        nodesep: 50,
+        ranksep: 70
+      },
+      defaultEdge: {
+        type: 'flow-edge',
+        style: {
+          lineDash: [5, 5],
+          stroke: '#aaa',
+          endArrow: { path: G6.Arrow.triangle(10, 12, 25) },
+          cursor: 'pointer'
+        }
+      },
+      modes: { default: ['click-select'] }
+    });
+
+    // 示例数据
+    const data = {
+      nodes: [
+        { id: 'start', label: '开始节点' },
+        { id: 'process1', label: '处理节点1' },
+        { id: 'process2', label: '处理节点2' },
+        { id: 'end', label: '结束节点' }
+      ],
+      edges: [
+        { source: 'start', target: 'process1' },
+        { source: 'process1', target: 'process2' },
+        { source: 'process2', target: 'end' }
+      ]
+    };
+
+    graph.data(data);
+    graph.render();
+
+    // 点击节点触发关联边动画
+    graph.on('node:click', (e) => {
+      const edges = graph.getEdges().filter(edge => {
+        return edge.getSource().getModel().id === e.item.getModel().id || 
+               edge.getTarget().getModel().id === e.item.getModel().id;
+      });
+
+      edges.forEach(edge => {
+        const shape = edge.getContainer().get('children')[0];
+        const isActive = shape._animation && !shape._animation.paused();
+        
+        graph.updateItem(edge, {
+          style: {
+            stroke: isActive ? '#aaa' : '#1890ff',
+            lineWidth: isActive ? 1 : 2
+          }
+        });
+
+        if (shape._animation) {
+          isActive ? shape._animation.pause() : shape._animation.resume();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

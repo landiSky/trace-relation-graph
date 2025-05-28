@@ -1,0 +1,17 @@
+{
+  "nodes": [
+    { "id": "9", "label": "9", "hasChildren": true },
+    { "id": "10", "label": "10", "hasChildren": false }
+  ],
+  "edges":[
+    {
+      "source": "8", "target": "9"
+    },
+    {
+      "source": "8", "target": "10"
+    },
+    {
+      "source": "9", "target": "3"
+    }
+  ]
+}
