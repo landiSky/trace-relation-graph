@@ -32,6 +32,11 @@ const container = ref(null);
 const graph = ref(null);
 let activeNodeId = ref(null);
 let ballAnimation = null;
+// 初始化画布矩阵跟踪器
+const transformTracker = reactive({
+  matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+  nodes: new Map(), // 存储节点初始坐标
+});
 
 // 储存已经收起的节点id和加载过的数据，下次展开不用再次请求数据
 const collapsedNodes = reactive(new Map());
@@ -443,7 +448,7 @@ const fetchChildren = async (url) => {
   return response.json();
 };
 // 节点展开
-const handleExpand = async (node, nodec) => {
+const handleExpand = async (node) => {
   const nodeId = node.id;
   const parentLayerNum = node.layer;
   if (!graph.value) return;
@@ -472,7 +477,7 @@ const handleExpand = async (node, nodec) => {
         d.layer = parentLayerNum + 1;
       });
     }
-
+    //
     nodeData.nodes = [...nodeData.nodes, ...children.nodes];
     nodeData.edges = [...nodeData.edges, ...children.edges];
 
@@ -482,10 +487,11 @@ const handleExpand = async (node, nodec) => {
       ...children,
       isCollapsed: false, // 展开
     });
-    handleNodeSort(nodeData); // 这里每次展开都要重新排序，重置原来的位置需要解决？？
+    handleNodeSort(nodeData, nodeId, node.layer); // 这里每次展开都要重新排序，重置原来的位置需要解决？？
     // // return;
     // await nextTick();
     // safeUpdateGraph();
+    // console.log("collapsedNodes", collapsedNodes);
   } finally {
     // 失败走这里，保持原视图不变，防止白屏
     // 这里删除折叠状态
@@ -551,12 +557,10 @@ const initGraph = () => {
       default: ["click-select", "drag-node", "drag-canvas"],
     },
     layout: {
-      // type: "dagre",
-      // rankdir: "LR",
       nodesep: 20,
       edgesep: 40,
       // 启用自动层级检测
-      // sortByCombo: true,
+      sortByCombo: true,
     },
     plugins: [tooltip],
     defaultNode: {
@@ -594,43 +598,6 @@ const initGraph = () => {
       }
     });
   });
-
-  const nodeTracker = {
-    originPositions: new Map(), // 存储节点原始坐标
-    currentMatrix: [1, 0, 0, 0, 1, 0, 0, 0, 1], // 画布当前变换矩阵
-  };
-
-  // 初始化节点坐标记录
-  function initNodeTracker(graph) {
-    graph.getNodes().forEach((node) => {
-      const model = node.getModel();
-      nodeTracker.originPositions.set(model.id, {
-        x: model.x,
-        y: model.y,
-      });
-    });
-  }
-
-  // 实时坐标计算函数
-  function getNodeRealPosition(nodeId) {
-    const origin = nodeTracker.originPositions.get(nodeId);
-    return {
-      x: origin.x + nodeTracker.currentMatrix[6],
-      y: origin.y + nodeTracker.currentMatrix[7],
-    };
-  }
-
-  // 绑定画布拖拽事件
-  // graph.value.on("canvas:drag", (e) => {
-  //   // 更新当前变换矩阵
-  //   nodeTracker.currentMatrix = graph.value.getGroup().getMatrix();
-
-  //   // 实时输出所有节点坐标
-  //   graph.value.getNodes().forEach((node) => {
-  //     const realPos = getNodeRealPosition(node.getID());
-  //     console.log(`节点 ${node.getID()} 实时坐标:`, realPos);
-  //   });
-  // });
 
   // 点击节点触发关联边动画
   graph.value.on("node:click", (e) => {
@@ -683,6 +650,36 @@ const initGraph = () => {
   // safeUpdateGraph();
   graph.value.data(nodeData);
   graph.value.render();
+
+  // 记录初始位置
+  graph.value.getNodes().forEach((node) => {
+    const model = node.getModel();
+    transformTracker.nodes.set(model.id, { x: model.x, y: model.y });
+  });
+
+  // console.log("transformTracker", transformTracker.nodes);
+
+  // 拖拽画布事件监听 实时更新节点位置
+  graph.value.on("canvas:drag", () => {
+    const matrix = graph.value.getGroup().getMatrix();
+    transformTracker.matrix = matrix;
+
+    // 实时输出节点绝对坐标
+    graph.value.getNodes().forEach((node) => {
+      const origin = transformTracker.nodes.get(node.getID());
+      const realPos = {
+        x: origin.x + matrix[6],
+        y: origin.y + matrix[7],
+      };
+      nodeData.nodes.forEach((n) => {
+        if (node.getID() === n.id) {
+          n.x = realPos.x;
+          n.y = realPos.y;
+          n.hasDraged = true; // 标记拖拽过的节点
+        }
+      });
+    });
+  });
 };
 
 // 节点高亮处理
@@ -750,14 +747,14 @@ const handleNodeClick = (e) => {
   activeNodeId.value = nodeId;
 };
 // 动态计算节点排序！这里必须是全部数据因为设置到动态加载部分数据，没办法部分排序会出问题
-const handleNodeSort = (data) => {
+const handleNodeSort = (data, nodeId, baseLayer) => {
   let tempLayer = 1;
   let countY = 100;
+  let baseX = 0;
   //每次排序需要清空layerCollect
   layerCollect.value.clear();
   // 这里需要按照层级排序，防止分层计算Y轴间距会有问题!!
   data.nodes.sort((a, b) => a.layer - b.layer);
-  console.log("sort11", data.nodes);
   // 计算Y轴每层的个数
   data.nodes.map((d) => {
     if (layerCollect.value.has(d.layer)) {
@@ -767,18 +764,47 @@ const handleNodeSort = (data) => {
       layerCollect.value.set(d.layer, 1);
     }
   });
-  // 计算Y轴每个的间距
-  const rankNode = data.nodes.map((d) => {
-    d.x = d.layer * 220;
-    if (tempLayer === d.layer) {
-      countY += (d.layer <= 1 ? 300 : 500) / layerCollect.value.get(d.layer);
-    } else {
-      countY = (d.layer <= 1 ? 300 : 500) / layerCollect.value.get(d.layer);
-    }
-    d.y = countY;
-    tempLayer = d.layer;
-    return d;
-  });
+  // console.log("sort11", data.nodes, layerCollect);
+  let rankNode = [];
+  // 计算Y轴每个的间距, 这里需要兼容拖拽画布的位置！！
+  if (!nodeId) {
+    rankNode = data.nodes.map((d) => {
+      d.x = d.layer * 220;
+      if (tempLayer === d.layer) {
+        countY += (d.layer <= 1 ? 300 : 500) / layerCollect.value.get(d.layer);
+      } else {
+        countY = (d.layer <= 1 ? 300 : 500) / layerCollect.value.get(d.layer);
+      }
+      d.y = countY;
+      tempLayer = d.layer;
+      return d;
+    });
+  } else {
+    rankNode = data.nodes.map((d) => {
+      if (d.id === nodeId) {
+        baseX = d.x;
+      }
+      // 当前点击节点的层数为基准
+      if (d.layer > baseLayer) {
+        d.x = (baseX + 220) * (d.layer - baseLayer);
+      }
+      // d.x = d.layer * 220;
+      if (d.layer > baseLayer) {
+        if (tempLayer === d.layer) {
+          countY +=
+            (d.layer <= 1 ? 300 : 500) / layerCollect.value.get(d.layer);
+        } else {
+          countY = (d.layer <= 1 ? 300 : 500) / layerCollect.value.get(d.layer);
+        }
+        d.y = countY;
+        tempLayer = d.layer;
+      } else {
+        d.y = d.y;
+      }
+      return d;
+    });
+  }
+
   nodeData.edges = data.edges;
   nodeData.nodes = rankNode;
   initGraph();
