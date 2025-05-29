@@ -33,7 +33,8 @@ const graph = ref(null);
 let activeNodeId = ref(null);
 let ballAnimation = null;
 
-const collapsedNodes = reactive(new Map()); // 储存已经收起的节点id, 下次展开不用再次请求数据
+// 储存已经收起的节点id和加载过的数据，下次展开不用再次请求数据
+const collapsedNodes = reactive(new Map());
 const loadingNodes = reactive(new Set());
 const activeEdges = ref(new Set()); // 存储当前激活的边ID
 const animationCache = new Map();
@@ -404,17 +405,11 @@ const collapseRightChildren = (nodeId) => {
     .getEdges()
     .filter((edge) => childIds.includes(edge.getTarget().getID()));
 
-  // const edgesTarget = edges.map(e => e.getTarget());
-
-  const nodes = children.map((n) => n.getModel());
-  console.log("collapseRightChildren", children, edges);
-  // 储存已经获取的子节点数据
+  // 储存节点收起展开状态
   collapsedNodes.set(nodeId, {
-    children: childIds,
-    nodes,
-    edges,
+    ...(collapsedNodes.get(nodeId)|| {}),
+    isCollapsed: true, // 收起
   });
-  console.log("collapsedNodes", collapsedNodes);
   // 收起节点和关联线
   childIds.forEach((id) => graph.value.hideItem(id));
   edges.forEach((edge) => graph.value.hideItem(edge.getID()));
@@ -451,54 +446,44 @@ const fetchChildren = async (url) => {
 const handleExpand = async (node, nodec) => {
   const nodeId = node.id;
   const parentLayerNum = node.layer;
-  console.log("handleExpand", loadingNodes);
   if (loadingNodes.has(nodeId) || !graph.value) return;
   try {
-    console.log("try");
     loadingNodes.add(nodeId);
     // 这里判断已经收起的子节点存在则不走请求，直接获取即可
-    const children = await fetchChildren("/data2.json");
-    if (!children.nodes && !children.edges) return;
-    // 将新获取的子节点layer+1
-    children.nodes.forEach((d) => {
-      d.layer = parentLayerNum + 1;
+    let children = {};
+    const collapsedData = collapsedNodes.get(nodeId);
+    const exsitData =
+      collapsedData && collapsedData.nodes && collapsedData.edges;
+    if (exsitData) {
+      children = {
+        nodes: collapsedData.nodes,
+        edges: collapsedData.edges
+      }
+    } else {
+      children = await fetchChildren("/data2.json");
+      if (!children.nodes && !children.edges) return;
+      // 将新获取的子节点layer+1
+      children.nodes.forEach((d) => {
+        d.layer = parentLayerNum + 1;
+      });
+      nodeData.nodes = [...nodeData.nodes, ...children.nodes];
+      nodeData.edges = [...nodeData.edges, ...children.edges];
+    }
+
+    // 更新折叠状态
+    collapsedNodes.set(nodeId, {
+      // ...(collapsedNodes.set(nodeId) || {}),
+      ...children,
+      isCollapsed: false, // 展开
     });
-    nodeData.nodes = [...nodeData.nodes, ...children.nodes];
-    nodeData.edges = [...nodeData.edges, ...children.edges];
-    // graph.value.get("layout").updateNode(nodeId); // 增量布局计算
-
-    handleNodeSort(nodeData);
+    handleNodeSort(nodeData); // 这里每次展开都要重新排序，重置原来的位置需要解决？？
     // // return;
-    // // 响应式数据更新
-    // children.nodes.forEach((child) => {
-    //   layerCollect.value
-    //   if (!nodeData.nodes.some((n) => n.id === child.id)) {
-    //     nodeData.nodes.push({
-    //       ...child,
-    //       x: undefined, // 由布局器计算
-    //       y: undefined,
-    //     });
-    //   }
-    // });
-    // children.edges.forEach((edge) => {
-    //   if (
-    //     !nodeData.edges.some((e) => e.source === nodeId && e.target === edge.id)
-    //   ) {
-    //     nodeData.edges.push({
-    //       source: edge.source,
-    //       target: edge.target,
-    //       id: `${edge.target}-${edge.source}`,
-    //     });
-    //   }
-    // });
-
     // await nextTick();
     // safeUpdateGraph();
   } finally {
     // 失败走这里，保持原视图不变，防止白屏
-    console.log(1111);
     // 这里删除折叠状态
-    collapsedNodes.delete(nodeId);
+    // collapsedNodes.delete(nodeId);
     loadingNodes.delete(nodeId); // 删除下次请求，不做嵌套children太麻烦也没必要重新遍历
   }
 };
@@ -597,7 +582,6 @@ const initGraph = () => {
 
   // 拖拽时实时更新所有边动画
   graph.value.on("node:drag", (e) => {
-    console.log(2222222, e.item.getModel());
     const nodeId = e.item.getModel().id;
     graph.value.getEdges().forEach((edge) => {
       if (edge.getModel().source === nodeId) {
@@ -656,9 +640,9 @@ const initGraph = () => {
         (edge) => edge.source === nodeId // 判断原有数据是否存在当前子节点的关联
       );
       const isLoadingNodes = loadingNodes.has(nodeId);
-      const isCollapsed = collapsedNodes.has(nodeId);
-      // 扩展收起子节点
-      if (!hasExistingChildren || isCollapsed) {
+      const isCollapsed = collapsedNodes.get(nodeId)?.isCollapsed;
+      // 扩展收起子节点 前者为undefined代表没有加载过数据
+      if (!collapsedNodes.get(nodeId) || isCollapsed) {
         handleExpand(e.item.getModel(), e);
       } else {
         collapseRightChildren(nodeId);
@@ -760,8 +744,6 @@ const handleNodeClick = (e) => {
     }
   });
   activeNodeId.value = nodeId;
-  // 清除其他节点动画
-  // clearInactiveAnimations();
 };
 // 动态计算节点排序！
 const handleNodeSort = (data) => {
@@ -792,7 +774,6 @@ const handleNodeSort = (data) => {
   });
   nodeData.edges = data.edges;
   nodeData.nodes = rankNode;
-  console.log("new nodeData", nodeData);
   initGraph();
 };
 
