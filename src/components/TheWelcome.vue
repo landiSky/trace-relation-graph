@@ -35,7 +35,6 @@ let ballAnimation = null;
 
 // 储存已经收起的节点id和加载过的数据，下次展开不用再次请求数据
 const collapsedNodes = reactive(new Map());
-const loadingNodes = reactive(new Set());
 const activeEdges = ref(new Set()); // 存储当前激活的边ID
 const animationCache = new Map();
 const layerCollect = ref(new Map()); //计算每层级Y周的节点个数方便布局使用，防止重叠
@@ -229,7 +228,6 @@ G6.registerNode("expand-node", {
       });
       // 节点存在，以后面展开收起状态为主，不存在默认收起
       const isCollapsed = collapsedNodes.get(cfg.id) && !collapsedNodes.get(cfg.id)?.isCollapsed;
-      const isLoadingNodes = loadingNodes.has(cfg.id);
       // 调整按钮组坐标：x方向移动到右侧边缘
       buttonGroup.setMatrix([1, 0, 0, 0, 1, 0, r * 1.2, 0, 1]);
       // 加减按钮
@@ -447,9 +445,8 @@ const fetchChildren = async (url) => {
 const handleExpand = async (node, nodec) => {
   const nodeId = node.id;
   const parentLayerNum = node.layer;
-  if (loadingNodes.has(nodeId) || !graph.value) return;
+  if (!graph.value) return;
   try {
-    loadingNodes.add(nodeId);
     // 这里判断已经收起的子节点存在则不走请求，直接获取即可
     let children = {};
     const collapsedData = collapsedNodes.get(nodeId);
@@ -485,7 +482,6 @@ const handleExpand = async (node, nodec) => {
     // 失败走这里，保持原视图不变，防止白屏
     // 这里删除折叠状态
     // collapsedNodes.delete(nodeId);
-    loadingNodes.delete(nodeId); // 删除下次请求，不做嵌套children太麻烦也没必要重新遍历
   }
 };
 
@@ -640,7 +636,6 @@ const initGraph = () => {
       const hasExistingChildren = nodeData.edges.some(
         (edge) => edge.source === nodeId // 判断原有数据是否存在当前子节点的关联
       );
-      const isLoadingNodes = loadingNodes.has(nodeId);
       const isCollapsed = collapsedNodes.get(nodeId)?.isCollapsed;
       // 扩展收起子节点 前者为undefined代表没有加载过数据
       if (!collapsedNodes.get(nodeId) || isCollapsed) {
