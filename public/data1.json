@@ -5,7 +5,7 @@
       { "id": "3", "label": "条烟", "layer": 2, "code": "99.1000.1/AC2014507(国家局⾏业⼆维码系统)"},
       { "id": "4", "label": "包装⽣产...", "layer": 2, "code": "99.0151.0101/YMC0402N02"},
       { "id": "5", "label": "消费者", "layer": 3, "code": "99.1000.1/YMA02N55"},
-      { "id": "6", "label": "封箱", "layer": 3, "code": "99.0151.0101/YMC0402N03", "hasChildren": true},
+      { "id": "6", "label": "封箱", "layer": 3, "code": "99.0151.0101/YMC0402N03"},
       { "id": "7", "label": "卷接工单", "layer": 3, "code": "99.0151.0101/YMC0402N01", "hasChildren": true},
       { "id": "8", "label": "框架纸", "layer": 3, "code": "99.0151.0101/AB030110031022"},
       { "id": "9", "label": "件烟", "layer": 3, "code": "99.0151.0101/AB030108021345", "hasChildren": true},
