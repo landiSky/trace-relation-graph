@@ -14,6 +14,7 @@ header {
   line-height: 1.5;
 }
 .container{
+  position: relative;
   width: 100%;
   height: 100%;
   display: flex;

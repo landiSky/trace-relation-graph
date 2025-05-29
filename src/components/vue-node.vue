@@ -1,49 +1,52 @@
 <!-- VueShape.vue -->
 <template>
-    <div class="vue-shape" :style="shapeStyle" @click="handleClick">
+    <div class="vue-shape"  @click="handleClick">
       <div class="shape-header">
         <slot name="header">
-          {{ cfg.label }}
+          {{ props.nodeInfo.label }}
         </slot>
       </div>
       
       <div class="shape-body">
         <slot name="content">
-          <p>{{ cfg.description }}</p>
+          <p>{{ props.nodeInfo.code }}</p>
         </slot>
       </div>
       
-      <div class="shape-actions">
-        <button v-for="action in cfg.actions" 
-                :key="action.name"
-                @click="emitAction(action)">
-          {{ action.label }}
-        </button>
-      </div>
+      
     </div>
   </template>
   
   <script setup>
-  import { computed } from 'vue';
+  import { computed, watch } from 'vue';
   
   const props = defineProps({
-    cfg: Object
+    nodeInfo: Object,
+    offset: {
+      type: Object,
+      default: () => ({ dx: 0, dy: 0 })
+    },
   });
   
   const emit = defineEmits(['action', 'click']);
   
-  const shapeStyle = computed(() => ({
-    backgroundColor: props.cfg.status === 'active' ? '#e6f7ff' : '#ffffff',
-    border: `2px solid ${props.cfg.color || '#91d5ff'}`,
-    borderRadius: props.cfg.radius + 'px' || '4px',
-    width: '100%',
-    height: '100%',
-    boxSizing: 'border-box'
-  }));
-  
+  //根据nodeInfo的xy坐标计算shape的位置
+  const x = computed(() => props.nodeInfo.x);
+  const y = computed(() => props.nodeInfo.y);
+
+  //根据nodeInfo的xy坐标计算shape的位置并赋值给css
+  const absoluteX = computed(() => `${x.value-20}px`);
+  const absoluteY = computed(() => `${y.value+10}px`);
+
+
+
   function handleClick() {
     emit('click', props.cfg);
   }
+
+  watch(()=>props.nodeInfo,(v)=>{
+    console.log(v);
+  },{immediate:true});
   
   function emitAction(action) {
     emit('action', {
@@ -55,36 +58,12 @@
   </script>
   
   <style scoped>
-  .vue-shape {
-    padding: 12px;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    cursor: pointer;
-  }
-  
-  .vue-shape:hover {
-    box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
-    transform: translateY(-2px);
-  }
-  
-  .shape-header {
-    font-weight: bold;
-    font-size: 16px;
-    margin-bottom: 8px;
-    color: #1890ff;
-  }
-  
-  .shape-body {
-    margin-bottom: 12px;
-  }
-  
-  .shape-actions button {
-    margin-right: 8px;
-    padding: 4px 12px;
-    background: #1890ff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+  .vue-shape{
+    position: absolute;
+    left: v-bind(absoluteX);
+    top: v-bind(absoluteY);
+    width: 280px;
+    height: 330px;
+    background-color: rgb(200, 241, 241);
   }
   </style>

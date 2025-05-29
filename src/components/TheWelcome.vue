@@ -1,6 +1,9 @@
 
 <template>
-  <div ref="container" class="graph-container"></div>
+  <div ref="container" class="graph-container">
+    <VueShape v-if="activeNode" class="vue-node" :nodeInfo="activeNode" :offset="graphMoveDelta"></VueShape>
+  </div>
+  
 </template>
   
   <script setup>
@@ -25,7 +28,7 @@
       添加加载状态可视化（需在节点绘制代码中添加loading图标）
   */
 
-import { ref, onMounted, reactive, nextTick,h } from "vue";
+import { ref, onMounted, reactive, nextTick } from "vue";
 import G6 from "@antv/g6";
 import VueShape from '../components/vue-node.vue';
 
@@ -33,6 +36,14 @@ const container = ref(null);
 const graph = ref(null);
 let activeNodeId = ref(null);
 let ballAnimation = null;
+
+const activeNode = ref(null);
+
+const startPosition = ref({ x: 0, y: 0 });
+const startClientPosition = ref({ x: 0, y: 0 });
+const endPosition = ref({ x: 0, y: 0 });
+//画布移动的偏移量
+const graphMoveDelta = ref({ dx: 0, dy: 0 });
 
 // 储存已经收起的节点id和加载过的数据，下次展开不用再次请求数据
 const collapsedNodes = reactive(new Map());
@@ -268,77 +279,7 @@ G6.registerNode("expand-node", {
   },
 });
 
-G6.registerNode('vue-shape', {
-  draw(cfg, group) {
-    // 创建容器
-    const container = document.createElement('div');
-    container.style.width = `${cfg.size[0]}px`;
-    container.style.height = `${cfg.size[1]}px`;
-    
-    // 创建 Vue 应用
-    const app = createApp({
-      render: () => h(VueShape, {
-        cfg,
-        onClick: handleVueClick,
-        onAction: handleVueAction
-      })
-    });
-    
-    // 挂载应用
-    app.mount(container);
-    cfg._vueApp = app;
-    
-    // 创建 G6 DOM 形状
-    return group.addShape('dom', {
-      attrs: {
-        x: 0,
-        y: 0,
-        html: container
-      },
-      name: 'vue-shape-dom'
-    });
-    
-    function handleVueClick() {
-      // 处理 Vue 组件点击事件
-      graph.emit('node:vue-click', {
-        nodeId: cfg.id
-      });
-    }
-    
-    function handleVueAction(action) {
-      // 处理 Vue 组件动作事件
-      graph.emit('node:vue-action', {
-        nodeId: cfg.id,
-        actionType: action.type
-      });
-    }
-  },
-  
-  update(cfg, node) {
-    // 更新 Vue 组件
-    const container = node.getContainer();
-    const shape = container.find(e => e.get('name') === 'vue-shape-dom');
-    
-    if (shape) {
-      // 销毁旧应用
-      cfg._vueApp?.unmount();
-      
-      // 创建新应用（实际项目中应优化为只更新数据）
-      const domContainer = shape.attr('html');
-      const app = createApp({
-        render: () => h(VueShape, { cfg })
-      });
-      app.mount(domContainer);
-      cfg._vueApp = app;
-    }
-  },
-  
-  remove(cfg) {
-    // 清理 Vue 应用
-    cfg._vueApp?.unmount();
-    delete cfg._vueApp;
-  }
-});
+
 // 注册自定义圆弧连接线类型
 G6.registerEdge("arc-edge", {
   draw(cfg, group) {
@@ -522,7 +463,7 @@ const fetchChildren = async (url) => {
 };
 // 节点展开
 const handleExpand = async (node, nodec) => {
-  debugger;
+  // debugger;
   const nodeId = node.id;
   const parentLayerNum = node.layer;
   if (!graph.value) return;
@@ -634,8 +575,15 @@ const initGraph = () => {
       // rankdir: "LR",
       nodesep: 20,
       edgesep: 40,
+      // ranksep: 100,
+      // animate: true,
       // 启用自动层级检测
       // sortByCombo: true,
+    },
+    animate: true,
+    animateCfg: {
+      duration: 500, // 动画持续时间（毫秒）
+      easing: 'easeCubic', // 动画缓动效果
     },
     plugins: [tooltip],
     defaultNode: {
@@ -666,6 +614,7 @@ const initGraph = () => {
 
   // 拖拽时实时更新所有边动画
   graph.value.on("node:drag", (e) => {
+    console.log("node:drag", e);
     const nodeId = e.item.getModel().id;
     graph.value.getEdges().forEach((edge) => {
       if (edge.getModel().source === nodeId) {
@@ -673,6 +622,29 @@ const initGraph = () => {
       }
     });
   });
+
+  graph.value.on('dragstart', (e) => {
+    if (e.target && e.target.isCanvas && e.target.isCanvas()) {
+      startPosition.value = graph.value.getPointByClient(e.clientX, e.clientY);
+      startClientPosition.value = { x: e.clientX, y: e.clientY };
+      console.log('画布拖动开始', startPosition, '原始鼠标坐标:', startClientPosition.value);
+      activeNodeId.value = null;
+    }
+  });
+
+  graph.value.on('dragend', (e) => {
+    if (e.target && e.target.isCanvas && e.target.isCanvas()) {
+      const currentPosition = graph.value.getPointByClient(e.clientX, e.clientY);
+      const deltaX = currentPosition.x - startPosition.value.x;
+      const deltaY = currentPosition.y - startPosition.value.y;
+      console.log(`拖动中: X偏移:${deltaX}, Y偏移:${deltaY}`);
+      console.log('拖动结束原始鼠标坐标:', {x: e.clientX, y: e.clientY},graph.value.get('width'),graph.value.get('height'));
+      console.log('原始鼠标偏移: X偏移:', e.clientX - startClientPosition.value.x, 'Y偏移:', e.clientY - startClientPosition.value.y);
+      console.log('画布拖动结束中心点坐标:',);
+      graphMoveDelta.value = { dx: e.clientX - startClientPosition.value.x, dy: e.clientY - startClientPosition.value.y };
+    }
+  });
+
 
   const nodeTracker = {
     originPositions: new Map(), // 存储节点原始坐标
@@ -736,6 +708,14 @@ const initGraph = () => {
     handleLightHight(e);
   });
 
+  graph.value.on("node:dblclick", (e) => {
+    activeEdges.value.clear();
+    // 清除所有节点动画
+    activeNode.value = e.item.getModel();
+    activeNode.value.x = e.clientX;
+    activeNode.value.y = e.clientY;
+  });
+
   // 画布点击恢复默认
   graph.value.on("click", (e) => {
     // 点击节点为circle执行
@@ -751,6 +731,9 @@ const initGraph = () => {
         clearBallAnimate(edge);
         graph.value.clearItemStates(edge);
       });
+      //清除激活节点
+      activeNodeId.value = null;
+      activeNode.value = null;
     }
   });
 
@@ -827,6 +810,7 @@ const handleNodeClick = (e) => {
     }
   });
   activeNodeId.value = nodeId;
+  activeNode.value = null;
 };
 // 动态计算节点排序！
 const handleNodeSort = (data) => {
@@ -858,6 +842,10 @@ const handleNodeSort = (data) => {
   nodeData.edges = data.edges;
   nodeData.nodes = rankNode;
   initGraph();
+  // setTimeout(() => {
+  //   safeUpdateGraph();
+  // }, 50);
+  // graph.value.refreshPositions();
 };
 
 onMounted(async () => {
@@ -884,9 +872,8 @@ if (typeof window !== "undefined")
   
 <style scoped>
 .graph-container {
-  /* width: 100vw; */
-  /* height: 100vh; */
-  /* background-color: red; */
+  position: relative;
+  
 }
 </style>
   
