@@ -398,11 +398,6 @@ const collapseRightChildren = (nodeId) => {
         nodeIds.includes(edge.getTarget().getID()) ||
         nodeIds.includes(edge.getSource().getID())
     );
-  console.log("nodeIds", nodeIds, children);
-  // 收起节点和关联线
-  // if(!collapsedData && !collapsedData.nodes && !collapsedData.edges) return;
-  // const nodeIds = collapsedData.nodes.map(n => n.id);
-  // const edgesIds = collapsedData.edges.map(e => e.id);
   collapsedNodes.set(nodeId, {
     ...(collapsedNodes.get(nodeId) || {}),
     isCollapsed: true, // 收起
@@ -419,7 +414,6 @@ const collapseRightChildren = (nodeId) => {
   });
   edgesIds.forEach((id) => graph.value.hideItem(id));
   // 注意相应数据也要同步删除
-  console.log("nodeData", nodeData);
   nodeData.nodes = nodeData.nodes.filter((n) => !nodeIds.includes(n.id));
   nodeData.edges = nodeData.edges.filter((e) => !edgesIds.includes(e.id));
   // 收起更新节点颜色
@@ -450,7 +444,6 @@ const fetchChildren = async (url) => {
 };
 // 节点展开
 const handleExpand = async (node, nodec) => {
-  debugger;
   const nodeId = node.id;
   const parentLayerNum = node.layer;
   if (!graph.value) return;
@@ -756,12 +749,15 @@ const handleNodeClick = (e) => {
   });
   activeNodeId.value = nodeId;
 };
-// 动态计算节点排序！
+// 动态计算节点排序！这里必须是全部数据因为设置到动态加载部分数据，没办法部分排序会出问题
 const handleNodeSort = (data) => {
   let tempLayer = 1;
   let countY = 100;
   //每次排序需要清空layerCollect
   layerCollect.value.clear();
+  // 这里需要按照层级排序，防止分层计算Y轴间距会有问题!!
+  data.nodes.sort((a, b) => a.layer - b.layer);
+  console.log("sort11", data.nodes);
   // 计算Y轴每层的个数
   data.nodes.map((d) => {
     if (layerCollect.value.has(d.layer)) {
