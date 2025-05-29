@@ -25,8 +25,9 @@
       添加加载状态可视化（需在节点绘制代码中添加loading图标）
   */
 
-import { ref, onMounted, reactive, nextTick } from "vue";
+import { ref, onMounted, reactive, nextTick,h } from "vue";
 import G6 from "@antv/g6";
+import VueShape from '../components/vue-node.vue';
 
 const container = ref(null);
 const graph = ref(null);
@@ -267,6 +268,77 @@ G6.registerNode("expand-node", {
   },
 });
 
+G6.registerNode('vue-shape', {
+  draw(cfg, group) {
+    // 创建容器
+    const container = document.createElement('div');
+    container.style.width = `${cfg.size[0]}px`;
+    container.style.height = `${cfg.size[1]}px`;
+    
+    // 创建 Vue 应用
+    const app = createApp({
+      render: () => h(VueShape, {
+        cfg,
+        onClick: handleVueClick,
+        onAction: handleVueAction
+      })
+    });
+    
+    // 挂载应用
+    app.mount(container);
+    cfg._vueApp = app;
+    
+    // 创建 G6 DOM 形状
+    return group.addShape('dom', {
+      attrs: {
+        x: 0,
+        y: 0,
+        html: container
+      },
+      name: 'vue-shape-dom'
+    });
+    
+    function handleVueClick() {
+      // 处理 Vue 组件点击事件
+      graph.emit('node:vue-click', {
+        nodeId: cfg.id
+      });
+    }
+    
+    function handleVueAction(action) {
+      // 处理 Vue 组件动作事件
+      graph.emit('node:vue-action', {
+        nodeId: cfg.id,
+        actionType: action.type
+      });
+    }
+  },
+  
+  update(cfg, node) {
+    // 更新 Vue 组件
+    const container = node.getContainer();
+    const shape = container.find(e => e.get('name') === 'vue-shape-dom');
+    
+    if (shape) {
+      // 销毁旧应用
+      cfg._vueApp?.unmount();
+      
+      // 创建新应用（实际项目中应优化为只更新数据）
+      const domContainer = shape.attr('html');
+      const app = createApp({
+        render: () => h(VueShape, { cfg })
+      });
+      app.mount(domContainer);
+      cfg._vueApp = app;
+    }
+  },
+  
+  remove(cfg) {
+    // 清理 Vue 应用
+    cfg._vueApp?.unmount();
+    delete cfg._vueApp;
+  }
+});
 // 注册自定义圆弧连接线类型
 G6.registerEdge("arc-edge", {
   draw(cfg, group) {
@@ -558,7 +630,7 @@ const initGraph = () => {
     width: window.innerWidth,
     height: window.innerHeight,
     modes: {
-      default: ["click-select", "drag-node", "drag-canvas"],
+      default: ["click-select", "drag-node", "drag-canvas", ],//"zoom-canvas"
     },
     layout: {
       // type: "dagre",
@@ -820,8 +892,9 @@ if (typeof window !== "undefined")
   
 <style scoped>
 .graph-container {
-  width: 100%;
-  height: 100%;
+  /* width: 100vw; */
+  /* height: 100vh; */
+  /* background-color: red; */
 }
 </style>
   
