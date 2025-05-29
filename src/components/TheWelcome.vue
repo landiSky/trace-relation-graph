@@ -353,39 +353,6 @@ const isNodeOnRight = (parentNode, childNode) => {
   return childNode.getModel().x > parentNode.getModel().x;
 };
 
-// 获取右侧子节点
-const getRightChildren = (nodeId) => {
-  const node = graph.value.findById(nodeId);
-  // 获取右侧子节点
-  const children = graph.value.getNeighbors(nodeId, "target");
-  // return children.filter((child) => isNodeOnRight(node, child));
-  return children;
-};
-
-// 安全递归获取右侧子节点
-const getSafeRightChildren = (nodeId, visited = new Set()) => {
-  if (visited.has(nodeId)) return [];
-  visited.add(nodeId);
-
-  const children = getRightChildren(nodeId);
-  let allChildren = [...children];
-
-  // 超过100个子节点就跳出不在循环，性能保护！
-  if (visited.size > 100) {
-    console.warn("检测到可能的循环引用", nodeId);
-    return allChildren;
-  }
-
-  children.forEach((child) => {
-    allChildren = [
-      ...allChildren,
-      ...getSafeRightChildren(child.getID(), visited),
-    ];
-  });
-
-  return allChildren;
-};
-
 // 判断边是否被隐藏
 const isEdgeHidden = (edge) => {
   return (
@@ -396,29 +363,23 @@ const isEdgeHidden = (edge) => {
 
 // 收起右侧子节点
 const collapseRightChildren = (nodeId) => {
-  const children = getSafeRightChildren(nodeId);
-
-  const childIds = children.map((n) => n.getID());
-  const edges = graph.value
-    .getEdges()
-    .filter((edge) => childIds.includes(edge.getTarget().getID()));
+  const collapsedData = collapsedNodes.get(nodeId);
 
   // 储存节点收起展开状态
   collapsedNodes.set(nodeId, {
     ...(collapsedNodes.get(nodeId)|| {}),
     isCollapsed: true, // 收起
   });
+
   // 收起节点和关联线
-  console.log('collapsedNodes', collapsedNodes)
-  childIds.forEach((id) => graph.value.hideItem(id));
-  edges.forEach((edge) => graph.value.hideItem(edge.getID()));
+  if(!collapsedData && !collapsedData.nodes && !collapsedData.edges) return;
+  collapsedData.nodes.forEach((node) => graph.value.hideItem(node.id));
+  collapsedData.edges.forEach((edge) => graph.value.hideItem(edge.id));
 
   // 收起更新节点颜色
   graph.value.updateItem(nodeId, {
     style: {},
   });
-
-  // updateAnimations();
 };
 
 // 定义正三角形箭头路径（高度为d）
