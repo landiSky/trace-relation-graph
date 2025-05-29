@@ -227,15 +227,15 @@ G6.registerNode("expand-node", {
         },
         name: "expand-button-bg",
       });
-      const isCollapsed = collapsedNodes.has(cfg.id);
+      // 节点存在，以后面展开收起状态为主，不存在默认收起
+      const isCollapsed = collapsedNodes.get(cfg.id) && !collapsedNodes.get(cfg.id)?.isCollapsed;
       const isLoadingNodes = loadingNodes.has(cfg.id);
       // 调整按钮组坐标：x方向移动到右侧边缘
       buttonGroup.setMatrix([1, 0, 0, 0, 1, 0, r * 1.2, 0, 1]);
       // 加减按钮
       buttonGroup.addShape("path", {
         attrs: {
-          // path: isCollapsed
-          path: isLoadingNodes
+          path: isCollapsed
             ? [
                 ["M", -1, 0],
                 ["L", 5, 0],
@@ -411,6 +411,7 @@ const collapseRightChildren = (nodeId) => {
     isCollapsed: true, // 收起
   });
   // 收起节点和关联线
+  console.log('collapsedNodes', collapsedNodes)
   childIds.forEach((id) => graph.value.hideItem(id));
   edges.forEach((edge) => graph.value.hideItem(edge.getID()));
 
