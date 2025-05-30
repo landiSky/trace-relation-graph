@@ -30,7 +30,7 @@
 
 import { ref, onMounted, reactive, nextTick } from "vue";
 import G6 from "@antv/g6";
-import VueShape from '../components/vue-node.vue';
+import VueShape from './InfoSelect.vue';
 
 const container = ref(null);
 const graph = ref(null);
@@ -66,7 +66,33 @@ const tooltip = new G6.Tooltip({
     outDiv.style.height = "fit-content";
     const model = e.item.getModel();
     if (e.item.getType() === "node") {
-      outDiv.innerHTML = `${model.code}`;
+      outDiv.innerHTML = `${model.label}<br/>${model.code}`;
+      // 创建可点击的文字
+      const clickableText = document.createElement("span");
+      clickableText.innerHTML = "<span style='color: #1890ff; cursor: pointer;margin-left: 5px;'>查看详情</span>";
+      // 添加点击事件
+      clickableText.addEventListener("click", (event) => {
+        // 阻止事件冒泡，避免触发节点的点击事件
+        event.stopPropagation();
+        const tooltipDom = document.querySelector('.g6-component-tooltip');
+        if (tooltipDom) {
+          // 获取tooltip的位置信息
+          const tooltipRect = tooltipDom.getBoundingClientRect();
+          // 设置activeNode的值为model
+          activeNode.value = model;
+
+          // 设置activeNode的坐标为tooltip左下角的坐标
+          activeNode.value.x = tooltipRect.left + 8;
+          activeNode.value.y = tooltipRect.bottom - 20;
+          console.log('点击查看详情 - tooltip左下角坐标:', {
+            x: tooltipRect.left,
+            y: tooltipRect.bottom
+          });
+        }
+      });
+      
+      // 将可点击文字添加到tooltip内容中
+      outDiv.appendChild(clickableText);
     } else {
       const source = e.item.getSource();
       const target = e.item.getTarget();
@@ -197,7 +223,7 @@ G6.registerNode("expand-node", {
         //   return gradient;
         // },
         stroke: cfg.style?.stroke || "#3EBABB",
-        lineWidth: 1,
+        lineWidth: 2,
       },
     });
 
@@ -629,21 +655,43 @@ const initGraph = () => {
       startClientPosition.value = { x: e.clientX, y: e.clientY };
       console.log('画布拖动开始', startPosition, '原始鼠标坐标:', startClientPosition.value);
       activeNodeId.value = null;
+      activeNode.value = null;
     }
   });
 
-  graph.value.on('dragend', (e) => {
-    if (e.target && e.target.isCanvas && e.target.isCanvas()) {
-      const currentPosition = graph.value.getPointByClient(e.clientX, e.clientY);
-      const deltaX = currentPosition.x - startPosition.value.x;
-      const deltaY = currentPosition.y - startPosition.value.y;
-      console.log(`拖动中: X偏移:${deltaX}, Y偏移:${deltaY}`);
-      console.log('拖动结束原始鼠标坐标:', {x: e.clientX, y: e.clientY},graph.value.get('width'),graph.value.get('height'));
-      console.log('原始鼠标偏移: X偏移:', e.clientX - startClientPosition.value.x, 'Y偏移:', e.clientY - startClientPosition.value.y);
-      console.log('画布拖动结束中心点坐标:',);
-      graphMoveDelta.value = { dx: e.clientX - startClientPosition.value.x, dy: e.clientY - startClientPosition.value.y };
-    }
-  });
+  // graph.value.on('dragend', (e) => {
+  //   if (e.target && e.target.isCanvas && e.target.isCanvas()) {
+  //     const currentPosition = graph.value.getPointByClient(e.clientX, e.clientY);
+  //     const deltaX = currentPosition.x - startPosition.value.x;
+  //     const deltaY = currentPosition.y - startPosition.value.y;
+  //     console.log(`拖动中: X偏移:${deltaX}, Y偏移:${deltaY}`);
+  //     console.log('拖动结束原始鼠标坐标:', {x: e.clientX, y: e.clientY},graph.value.get('width'),graph.value.get('height'));
+  //     console.log('原始鼠标偏移: X偏移:', e.clientX - startClientPosition.value.x, 'Y偏移:', e.clientY - startClientPosition.value.y);
+  //     console.log('画布拖动结束中心点坐标:',);
+  //     graphMoveDelta.value = { dx: e.clientX - startClientPosition.value.x, dy: e.clientY - startClientPosition.value.y };
+  //   }
+  // });
+
+  // graph.value.on('node:contextmenu', (e) => {
+  //   e.preventDefault(); // 阻止默认右键菜单
+  //   const point = graph.value.getPointByClient(e.clientX, e.clientY);
+  //   console.log('右键点击画布位置:', point);
+  //   // 自定义操作（如显示菜单）
+  //   activeNode.value = e.item.getModel();
+  //   activeNode.value.x = e.clientX;
+  //   activeNode.value.y = e.clientY;
+  // });
+
+  // graph.value.on('canvas:contextmenu', (e) => {
+  //   console.log('右键点击画布位置:', e.clientX, e.clientY);
+  //   e.preventDefault(); // 阻止默认右键菜单
+  //   // const point = graph.value.getPointByClient(e.clientX, e.clientY);
+  //   // console.log('右键点击画布位置:', point);
+  //   // // 自定义操作（如显示菜单）
+  //   // activeNode.value = e.item.getModel();
+  //   // activeNode.value.x = e.clientX;
+  //   // activeNode.value.y = e.clientY;
+  // });
 
 
   const nodeTracker = {
@@ -708,13 +756,14 @@ const initGraph = () => {
     handleLightHight(e);
   });
 
-  graph.value.on("node:dblclick", (e) => {
-    activeEdges.value.clear();
-    // 清除所有节点动画
-    activeNode.value = e.item.getModel();
-    activeNode.value.x = e.clientX;
-    activeNode.value.y = e.clientY;
-  });
+  // 不用
+  // graph.value.on("node:dblclick", (e) => {
+  //   activeEdges.value.clear();
+  //   //清除所有节点动画
+  //   activeNode.value = e.item.getModel();
+  //   activeNode.value.x = e.clientX;
+  //   activeNode.value.y = e.clientY;
+  // });
 
   // 画布点击恢复默认
   graph.value.on("click", (e) => {
@@ -737,14 +786,9 @@ const initGraph = () => {
     }
   });
 
-  // setTimeout(() => {
-  //   graph.value.refreshPositions();
-  //   // graph.value.fitView();
-  // }, 50);
-  // 渲染画布
-  // safeUpdateGraph();
   graph.value.data(nodeData);
   graph.value.render();
+  // graph.value.fitCenter();
 };
 
 // 节点高亮处理
@@ -813,9 +857,128 @@ const handleNodeClick = (e) => {
   activeNode.value = null;
 };
 // 动态计算节点排序！
+//会根据父节点的顺序排序，子节点的顺序在父节点内排序
 const handleNodeSort = (data) => {
+  //每次排序需要清空layerCollect
+  layerCollect.value.clear();
+  
+  // 1. 构建父子关系映射
+  const parentChildMap = new Map(); // 父节点ID -> 子节点ID数组
+  const childParentMap = new Map(); // 子节点ID -> 父节点ID数组
+  
+  data.edges.forEach(edge => {
+    const parentId = edge.source;
+    const childId = edge.target;
+    
+    // 构建父->子映射
+    if (!parentChildMap.has(parentId)) {
+      parentChildMap.set(parentId, []);
+    }
+    parentChildMap.get(parentId).push(childId);
+    
+    // 构建子->父映射
+    if (!childParentMap.has(childId)) {
+      childParentMap.set(childId, []);
+    }
+    childParentMap.get(childId).push(parentId);
+  });
+  
+  // 2. 按层级分组节点
+  const nodesByLayer = new Map();
+  data.nodes.forEach(node => {
+    if (!nodesByLayer.has(node.layer)) {
+      nodesByLayer.set(node.layer, []);
+    }
+    nodesByLayer.get(node.layer).push(node);
+  });
+  
+  // 3. 计算每层节点数量
+  nodesByLayer.forEach((nodes, layer) => {
+    layerCollect.value.set(layer, nodes.length);
+  });
+  
+  // 4. 按层级排序，每层内部按父节点顺序排序
+  const sortedLayers = Array.from(nodesByLayer.keys()).sort((a, b) => a - b);
+  //每层的节点数组
+  const rankNode = [];
+  
+  sortedLayers.forEach(layer => {
+    //某层的节点数组
+    const nodesInLayer = nodesByLayer.get(layer);
+    
+    if (layer === 1) {
+      // 第一层节点保持原顺序
+      nodesInLayer.forEach(node => {
+        rankNode.push(node);
+      });
+    } else {
+      // 其他层按父节点顺序排序
+      const sortedNodes = [];
+      const processedNodes = new Set();
+      
+      // 获取上一层已排序的节点
+      const prevLayerNodes = rankNode.filter(n => n.layer === layer - 1);
+      
+      // 按照父节点的顺序排列子节点，排序有点繁琐，应该有简洁方法
+      prevLayerNodes.forEach(parentNode => {
+        // 父节点的子节点
+        const children = parentChildMap.get(parentNode.id) || [];
+        children.forEach(childId => {
+          const childNode = nodesInLayer.find(n => n.id === childId);
+          if (childNode && !processedNodes.has(childId)) {
+            sortedNodes.push(childNode);
+            processedNodes.add(childId);
+          }
+        });
+      });
+      
+      // 添加没有父节点的节点（可能是孤立节点），应该没用
+      nodesInLayer.forEach(node => {
+        if (!processedNodes.has(node.id)) {
+          sortedNodes.push(node);
+        }
+      });
+      
+      rankNode.push(...sortedNodes);
+    }
+  });
+  
+  // 5. 计算坐标
+  let currentLayer = 1;
+  let layerNodeCount = 0;
+  
+  //排好序的节点数组计算坐标
+  rankNode.forEach(node => {
+    // X坐标基于层级
+    node.x = node.layer * 240;
+    
+    // Y坐标计算
+    if (currentLayer !== node.layer) {
+      currentLayer = node.layer;
+      layerNodeCount = 0;
+    }
+    
+    layerNodeCount++;
+    const totalNodesInLayer = layerCollect.value.get(node.layer);
+    const spacing = (node.layer <= 1 ? 300 : 500) / totalNodesInLayer;
+    node.y = layerNodeCount * spacing;
+  });
+  
+  // 6. 更新数据并渲染
+  nodeData.edges = data.edges;
+  nodeData.nodes = rankNode;
+  
+  if (graph.value) {
+    graph.value.data(nodeData);
+    graph.value.render();
+  } else {
+    initGraph(); // 只有在图形实例不存在时才重建
+  }
+};
+const handleNodeSort00 = (data) => {
+  console.log("handleNodeSort", data);
   let tempLayer = 1;
-  let countY = 100;
+  let countY = 0;
   //每次排序需要清空layerCollect
   layerCollect.value.clear();
   // 计算Y轴每层的个数
@@ -841,7 +1004,13 @@ const handleNodeSort = (data) => {
   });
   nodeData.edges = data.edges;
   nodeData.nodes = rankNode;
-  initGraph();
+  if (graph.value) {
+    graph.value.data(nodeData);
+    graph.value.render();
+  } else {
+    initGraph(); // 只有在图形实例不存在时才重建
+  }
+  // initGraph();
   // setTimeout(() => {
   //   safeUpdateGraph();
   // }, 50);
