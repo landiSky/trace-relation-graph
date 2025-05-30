@@ -82,7 +82,7 @@ const tooltip = new G6.Tooltip({
           activeNode.value = model;
 
           // 设置activeNode的坐标为tooltip左下角的坐标
-          activeNode.value.x = tooltipRect.left + 8;
+          activeNode.value.x = tooltipRect.left + 0;
           activeNode.value.y = tooltipRect.bottom - 20;
           console.log('点击查看详情 - tooltip左下角坐标:', {
             x: tooltipRect.left,

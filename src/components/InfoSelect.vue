@@ -1,6 +1,6 @@
 <!-- 弹框勾选界面 -->
 <template>
-    <div class="vue-shape"  @click="handleClick">
+    <div class="vue-shape">
       <div class="shape-header">
         <slot name="header">
           {{ props.nodeInfo.label }}
@@ -16,43 +16,43 @@
   </template>
   
   <script setup>
-    import { computed, watch,defineProps } from "vue";
-    const props = defineProps({
-      nodeInfo: Object,
-      offset: {
-        type: Object,
-        default: () => ({ dx: 0, dy: 0 })
-      },
-    });
-    
-    const emit = defineEmits(['action', 'click']);
-    
-    //根据nodeInfo的xy坐标计算shape的位置
-    const x = computed(() => props.nodeInfo.x);
-    const y = computed(() => props.nodeInfo.y);
+  import { computed, watch, defineProps } from "vue";
+  const props = defineProps({
+    nodeInfo: Object,
+    offset: {
+      type: Object,
+      default: () => ({ dx: 0, dy: 0 })
+    },
+  });
+  
+  const emit = defineEmits(['action', 'click']);
+  
+  //根据nodeInfo的xy坐标计算shape的位置
+  const x = computed(() => props.nodeInfo.x);
+  const y = computed(() => props.nodeInfo.y);
 
-    //根据nodeInfo的xy坐标计算shape的位置并赋值给css
-    const absoluteX = computed(() => `${x.value-0}px`);
-    const absoluteY = computed(() => `${y.value+0}px`);
-
-
-
-    function handleClick() {
-      emit('click', props.cfg);
+  // 组件的高度（与CSS中的height保持一致,后续需要动态计算）
+  const shapeHeight = 330;
+  
+  //根据nodeInfo的xy坐标计算shape的位置并赋值给css
+  const absoluteX = computed(() => `${x.value}px`);
+  const absoluteY = computed(() => {
+    const nodeY = y.value;
+    const viewportHeight = window.innerHeight;
+    // 计算如果放在节点下方的位置
+    const belowPosition = nodeY;
+    // 判断是否有足够空间放在下方
+    const canPlaceBelow = belowPosition + shapeHeight <= viewportHeight;
+    if (canPlaceBelow) {
+      // 放在节点下方
+      return `${belowPosition}px`;
+    } else {
+      // 放在节点上方
+      return `${nodeY - shapeHeight - 90}px`;
     }
+  });
 
-    watch(()=>props.nodeInfo,(v)=>{
-      console.log(v);
-    },{immediate:true});
-    
-    function emitAction(action) {
-      emit('action', {
-        type: action.name,
-        nodeId: props.cfg.id,
-        data: action.data
-      });
-    }
-  </script>
+</script>
     
   <style scoped>
       .vue-shape{
