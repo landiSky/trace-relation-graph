@@ -282,47 +282,10 @@ const getAllChildren = (parentNodeId, childNode) => {
   return result;
 };
 
-// 获取右侧子节点
-// const getRightChildren = (nodeId) => {
-//   const node = graph.value.findById(nodeId);
-//   // 获取右侧子节点
-//   const children = graph.value.getNeighbors(nodeId, "target");
-//   console.log("getNeighbors", children);
-//   // 需要获取了所有相关联的子节点，需要判断只收起父节点下面的所有子节点，这里如果单纯用x判断，那把节点拖拽到最左边其他地方相当于全部都收起了
-//   // return children.filter((child) => isNodeOnRight(node, child));
-//   return children.filter((child) => isAllChildren(node, child));
-// };
-
-// 安全递归获取右侧子节点
-// const getSafeRightChildren = (nodeId, visited = new Set()) => {
-//   if (visited.has(nodeId)) return [];
-//   visited.add(nodeId);
-
-//   const children = getAllChildren(nodeId);
-//   console.log('getAllChildren', children)
-//   // let allChildren = [...children];
-
-//   // 超过100个子节点就跳出不在循环，性能保护！
-//   if (visited.size > 100) {
-//     console.warn("检测到可能的循环引用", nodeId);
-//     return allChildren;
-//   }
-
-//   // children.forEach((child) => {
-//   //   allChildren = [
-//   //     ...allChildren,
-//   //     ...getSafeRightChildren(child.getID(), visited),
-//   //   ];
-//   // });
-
-//   // return allChildren;
-// };
-
 // 收起右侧子节点
 const collapseRightChildren = (nodeId) => {
   // 这里需要递归计算出点击收起按钮的父节点的子节点，也包括子节点的子节点
   const children = getAllChildren(nodeId);
-  console.log("collapseRightChildren", children);
   // const nodeIds = children.map((n) => n.getID());
   const nodeIds = children.map((n) => n.id);
   // 通过节点找到对应连接线
@@ -356,8 +319,9 @@ const collapseRightChildren = (nodeId) => {
     });
   });
   edgesIds.forEach((id) => graph.value.hideItem(id));
-  // 注意相应数据也要同步删除
-  // nodeData.nodes = nodeData.nodes.filter((n) => !nodeIds.includes(n.id));
+  // 注意相应数据也要同步删除,后续排序使用
+  nodeData.nodes = nodeData.nodes.filter((n) => !nodeIds.includes(n.id));
+  nodeData.edges = nodeData.edges.fill((e) => !edgesIds.includes(e.id));
 };
 
 // 定义正三角形箭头路径（高度为d）
@@ -524,41 +488,10 @@ const initGraph = () => {
     }
   });
 
-  // setTimeout(() => {
-  //   graph.value.refreshPositions();
-  //   // graph.value.fitView();
-  // }, 50);
   // 渲染画布
   // safeUpdateGraph();
   graph.value.data(nodeData);
   graph.value.render();
-
-  // 记录初始位置
-  graph.value.getNodes().forEach((node) => {
-    const model = node.getModel();
-    transformTracker.nodes.set(model.id, { x: model.x, y: model.y });
-  });
-
-  // 拖拽画布事件监听 实时更新节点位置
-  graph.value.on("canvas:drag", () => {
-    const matrix = graph.value.getGroup().getMatrix();
-    transformTracker.matrix = matrix;
-    // 实时输出节点绝对坐标
-    // graph.value.getNodes().forEach((node) => {
-    //   const origin = transformTracker.nodes.get(node.getID());
-    //   const realPos = {
-    //     x: origin.x + matrix[6],
-    //     y: origin.y + matrix[7],
-    //   };
-    //   nodeData.nodes.forEach((n) => {
-    //     if (node.getID() === n.id) {
-    //       n.x = realPos.x;
-    //       n.y = realPos.y;
-    //       n.hasDraged = true; // 标记拖拽过的节点
-    //     }
-    //   });
-    // });
-  });
 };
 
 // 节点高亮处理
@@ -684,27 +617,22 @@ const handleExpand = async (node) => {
       ...children,
       isCollapsed: false, // 展开
     });
+    // 同步数据后续排序要用
+    nodeData.nodes = [...nodeData.nodes, ...children.nodes];
+    nodeData.edges = [...nodeData.edges, ...children.edges];
     // 指给新增的子节点排序, 这里需要区分是物理删除还是隐藏
-    handleNodeSort(children, nodeId, exsitData);
-    // nodeData.nodes = [...nodeData.nodes, ...children.nodes];
-    // nodeData.edges = [...nodeData.edges, ...children.edges];
-
-    // handleNodeSort(nodeData, nodeId, node.layer); // 这里每次展开都要重新排序，重置原来的位置需要解决？？
-    // // return;
+    handleNodeSort(children, nodeId, exsitData, parentLayerNum + 1);
     // await nextTick();
     // safeUpdateGraph();
-  } finally {
+  } catch (e) {
     // 失败走这里，保持原视图不变，防止白屏
-    // 这里删除折叠状态
-    // collapsedNodes.delete(nodeId);
+    console.log("catch", e);
+    initGraph();
   }
 };
 
-// 指给新加载的节点和初始化排序，之后都是基于画布拖拽的矩阵排序
-const handleNodeSort = (data, nodeId, hasExist) => {
-  let tempLayer = 1;
-  let countY = 100;
-  let baseX = 0;
+// 计算Y周每层的个数
+const recordLayerNum = (data) => {
   //每次排序需要清空layerCollect
   layerCollect.value.clear();
   // 这里需要按照层级排序，防止分层计算Y轴间距会有问题!!
@@ -718,11 +646,18 @@ const handleNodeSort = (data, nodeId, hasExist) => {
       layerCollect.value.set(d.layer, 1);
     }
   });
-  let rankNode = [];
+};
+
+// 指给新加载的节点和初始化排序，之后都是基于画布拖拽的矩阵排序
+const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
+  recordLayerNum(data);
+  let tempLayer = 1;
+  let countY = 100;
+  // let rankNode = [];
   // 计算Y轴每个的间距, 这里需要兼容拖拽画布的位置！！
   if (!nodeId) {
-    // 初始化
-    rankNode = data.nodes.map((d) => {
+    // 初始化 默认展示3层
+    const rankNode = data.nodes.map((d) => {
       d.x = d.layer * 220;
       if (tempLayer === d.layer) {
         countY += (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);
@@ -737,21 +672,27 @@ const handleNodeSort = (data, nodeId, hasExist) => {
     nodeData.nodes = rankNode;
     initGraph();
   } else {
-    console.log('nodeData', nodeData.nodes)
+    const sameCdLayerNodeData = nodeData.nodes.filter(
+      (n) => n.layer === currentLayer
+    );
+    // 每次需要重新计算layer层数
+    recordLayerNum(nodeData);
+    // 按照父节点Y轴从小到大排序
+    sameCdLayerNodeData.sort((a, b) => a.parentNode.y - b.parentNode.y);
     let countY = 0;
-    // 更新子节点坐标这里还要考虑子节点超过2个之后怎么排列，固定值会堆叠在一起
-    data.nodes.forEach((d, idx) => {
-      console.log('parentNode', d.parentNode)
-      // 需要算出所有子节点的个数，计算出基准总间隔数就不会导致重叠了,这里会重叠点7和点9 还有一种方法就是同步nodeData增减，通过先大小排序依次通过layer算出间隔????
-      const baseY = d.parentNode.y - (data.nodes.length - data.nodes.length/2) * 38;
-      countY += idx === 0 ? baseY : 76;
+    let baseY = 0;
+    sameCdLayerNodeData.forEach((d, idx) => {
+      // 先算出第一个基准Y轴的起始点, 通过当前有层级有几个子节点来计算
+      if (idx === 0)
+        baseY =
+          d.parentNode.y - (layerCollect.value.get(currentLayer) / 2) * 38;
+      // const baseY = idx === 0 ?
+      //   d.parentNode.y - (data.nodes.length - data.nodes.length / 2) * 38;
+      // countY += idx === 0 ? baseY : 76;
+      countY += 600 / layerCollect.value.get(currentLayer);
       d.y = countY;
       d.x = d.parentNode.x + 220;
-
     });
-    // graph.value.addItem('node', {
-    //   ...data.nodes
-    // })
     // 第一次使用addItem这里很重要。可以保证原有的节点位置保持不变！！！
     graph.value.updateLayout({ freeze: true }); // 冻结现有节点位置
     data.nodes.forEach((node) => {
@@ -769,8 +710,12 @@ const handleNodeSort = (data, nodeId, hasExist) => {
         // layer: node.layer || 1, // 确保有层级信息
       });
     });
+    sameCdLayerNodeData.forEach((child, index) => {
+      graph.value.updateItem(child.id, {
+        y: child.y, // 对当前子节点的坐标进行重排！！
+      });
+    });
     graph.value.updateItem(nodeId, { style: {} }); // 强制触发父节点重绘
-    // 处理完直接点之后更新collapse状态更新按钮状态即可
   }
 
   // nodeData.edges = data.edges;
