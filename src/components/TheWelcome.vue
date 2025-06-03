@@ -1,6 +1,9 @@
 
 <template>
-  <div ref="container" class="graph-container"></div>
+  <div ref="container" class="graph-container">
+    <VueShape v-if="activeNode" class="vue-node" :nodeInfo="activeNode" :offset="graphMoveDelta"></VueShape>
+  </div>
+  
 </template>
   
   <script setup>
@@ -27,6 +30,7 @@
 
 import { ref, onMounted, reactive, nextTick } from "vue";
 import G6 from "@antv/g6";
+import VueShape from './InfoSelect.vue';
 
 const container = ref(null);
 const graph = ref(null);
@@ -37,6 +41,14 @@ const transformTracker = reactive({
   matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
   nodes: new Map(), // 存储节点初始坐标
 });
+
+const activeNode = ref(null);
+
+const startPosition = ref({ x: 0, y: 0 });
+const startClientPosition = ref({ x: 0, y: 0 });
+const endPosition = ref({ x: 0, y: 0 });
+//画布移动的偏移量
+const graphMoveDelta = ref({ dx: 0, dy: 0 });
 
 // 储存已经收起的节点id和加载过的数据，下次展开不用再次请求数据
 const collapsedNodes = reactive(new Map());
@@ -64,7 +76,33 @@ const tooltip = new G6.Tooltip({
     outDiv.style.height = "fit-content";
     const model = e.item.getModel();
     if (e.item.getType() === "node") {
-      outDiv.innerHTML = `${model.code}`;
+      outDiv.innerHTML = `${model.label}<br/>${model.code}`;
+      // 创建可点击的文字
+      const clickableText = document.createElement("span");
+      clickableText.innerHTML = "<span style='color: #1890ff; cursor: pointer;margin-left: 5px;'>查看详情</span>";
+      // 添加点击事件
+      clickableText.addEventListener("click", (event) => {
+        // 阻止事件冒泡，避免触发节点的点击事件
+        event.stopPropagation();
+        const tooltipDom = document.querySelector('.g6-component-tooltip');
+        if (tooltipDom) {
+          // 获取tooltip的位置信息
+          const tooltipRect = tooltipDom.getBoundingClientRect();
+          // 设置activeNode的值为model
+          activeNode.value = model;
+
+          // 设置activeNode的坐标为tooltip左下角的坐标
+          activeNode.value.x = tooltipRect.left + 0;
+          activeNode.value.y = tooltipRect.bottom - 20;
+          console.log('点击查看详情 - tooltip左下角坐标:', {
+            x: tooltipRect.left,
+            y: tooltipRect.bottom
+          });
+        }
+      });
+      
+      // 将可点击文字添加到tooltip内容中
+      outDiv.appendChild(clickableText);
     } else {
       const source = e.item.getSource();
       const target = e.item.getTarget();
@@ -97,7 +135,7 @@ G6.registerNode("expand-node", {
         //   return gradient;
         // },
         stroke: cfg.style?.stroke || "#3EBABB",
-        lineWidth: 1,
+        lineWidth: 2,
       },
     });
 
@@ -178,6 +216,7 @@ G6.registerNode("expand-node", {
     }
   },
 });
+
 
 // 注册自定义圆弧连接线类型
 G6.registerEdge("arc-edge", {
@@ -400,13 +439,20 @@ const initGraph = () => {
     width: window.innerWidth,
     height: window.innerHeight,
     modes: {
-      default: ["click-select", "drag-node", "drag-canvas"],
+      default: ["click-select", "drag-node", "drag-canvas", ],//"zoom-canvas"
     },
     layout: {
       nodesep: 20,
       edgesep: 40,
+      // ranksep: 100,
+      // animate: true,
       // 启用自动层级检测
       sortByCombo: true,
+    },
+    animate: true,
+    animateCfg: {
+      duration: 500, // 动画持续时间（毫秒）
+      easing: 'easeCubic', // 动画缓动效果
     },
     plugins: [tooltip],
     defaultNode: {
@@ -437,6 +483,7 @@ const initGraph = () => {
 
   // 拖拽时实时更新所有边动画
   graph.value.on("node:drag", (e) => {
+    console.log("node:drag", e);
     const nodeId = e.item.getModel().id;
     graph.value.getEdges().forEach((edge) => {
       if (edge.getModel().source === nodeId) {
@@ -470,6 +517,15 @@ const initGraph = () => {
     handleLightHight(e);
   });
 
+  // 不用
+  // graph.value.on("node:dblclick", (e) => {
+  //   activeEdges.value.clear();
+  //   //清除所有节点动画
+  //   activeNode.value = e.item.getModel();
+  //   activeNode.value.x = e.clientX;
+  //   activeNode.value.y = e.clientY;
+  // });
+
   // 画布点击恢复默认
   graph.value.on("click", (e) => {
     // 点击节点为circle执行
@@ -485,6 +541,9 @@ const initGraph = () => {
         clearBallAnimate(edge);
         graph.value.clearItemStates(edge);
       });
+      //清除激活节点
+      activeNodeId.value = null;
+      activeNode.value = null;
     }
   });
 
@@ -557,6 +616,7 @@ const handleNodeClick = (e) => {
     }
   });
   activeNodeId.value = nodeId;
+  activeNode.value = null;
 };
 // 动态计算节点排序！这里必须是全部数据因为设置到动态加载部分数据，没办法部分排序会出问题
 
@@ -747,8 +807,8 @@ if (typeof window !== "undefined")
   
 <style scoped>
 .graph-container {
-  width: 100%;
-  height: 100%;
+  position: relative;
+  
 }
 </style>
   
