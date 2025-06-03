@@ -144,7 +144,7 @@ G6.registerNode("expand-node", {
         text: `${formatString(cfg.label)}`,
         x: 0,
         y: 0,
-        fontSize: 8,
+        fontSize: 12,
         textAlign: "center",
         textBaseline: "middle",
         // width: 10,
@@ -155,7 +155,7 @@ G6.registerNode("expand-node", {
         textWrap: {
           maxWidth: 30,
           autoWrap: true,
-          lineHeight: 10,
+          lineHeight: 50,
         },
         fill: "#fff",
       },
@@ -457,7 +457,7 @@ const initGraph = () => {
     plugins: [tooltip],
     defaultNode: {
       type: "expand-node",
-      size: 20,
+      size: 30,
     },
     defaultEdge: {
       type: "arc-edge",
