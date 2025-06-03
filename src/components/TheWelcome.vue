@@ -141,7 +141,7 @@ G6.registerNode("expand-node", {
 
     group.addShape("text", {
       attrs: {
-        text: cfg.id,
+        text: `${formatString(cfg.label)}`,
         x: 0,
         y: 0,
         fontSize: 8,
@@ -783,6 +783,26 @@ const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
   // initGraph();
 };
 
+function formatString(input) {
+    if (typeof input !== 'string' || !input) return input;
+    
+    const chars = [...input]; // 正确处理Unicode字符
+    const length = chars.length;
+    
+    if (length <= 4) {
+        return input; // 不超过4个字符直接返回
+    }
+    
+    if (length > 8) {
+        // 前4个字符 + 换行 + 第5-7个字符 + 省略号
+        return chars.slice(0, 4).join('') + '\n' + 
+               chars.slice(4, 7).join('') + '...';
+    }
+    
+    // 长度在5-8之间：第4个后加换行
+    return chars.slice(0, 4).join('') + '\n' + 
+           chars.slice(4).join('');
+}
 onMounted(async () => {
   // 模拟API请求获取子节点
   const response = await fetch("/data1.json");
