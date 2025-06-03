@@ -741,8 +741,9 @@ const handleNodeSort = (data, nodeId, hasExist) => {
     let countY = 0;
     // 更新子节点坐标这里还要考虑子节点超过2个之后怎么排列，固定值会堆叠在一起
     data.nodes.forEach((d, idx) => {
+      console.log('parentNode', d.parentNode)
       // 需要算出所有子节点的个数，计算出基准总间隔数就不会导致重叠了,这里会重叠点7和点9 还有一种方法就是同步nodeData增减，通过先大小排序依次通过layer算出间隔????
-      const baseY = d.parentNode.y + (data.nodes.length) * 38;
+      const baseY = d.parentNode.y - (data.nodes.length - data.nodes.length/2) * 38;
       countY += idx === 0 ? baseY : 76;
       d.y = countY;
       d.x = d.parentNode.x + 220;
