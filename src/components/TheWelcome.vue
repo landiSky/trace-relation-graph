@@ -15,6 +15,8 @@ import VueShape from './InfoSelect.vue';
 
 const container = ref(null);
 const graph = ref(null);
+const ballSize = 30; // 每个节点小球的大小
+const maxYHeight = window.innerHeight; // 设置小球Y轴的最大总高度
 let activeNodeId = ref(null);
 let ballAnimation = null;
 // 初始化画布矩阵跟踪器
@@ -98,7 +100,7 @@ const tooltip = new G6.Tooltip({
 // 自定义节点类型
 G6.registerNode("expand-node", {
   draw(cfg, group) {
-    const r = cfg.size || 40;
+    const r = cfg.size || 30;
     if (!graph.value.getNeighbors) return;
     // const hasChildren = graph.value.getNeighbors(cfg.id, "target").length > 0;
     const hasChildren = cfg.hasChildren;
@@ -437,7 +439,7 @@ const initGraph = () => {
     plugins: [tooltip],
     defaultNode: {
       type: "expand-node",
-      size: 30,
+      size: ballSize,  // 设置小球的大小
     },
     defaultEdge: {
       type: "arc-edge",
@@ -673,7 +675,7 @@ const recordLayerNum = (data) => {
 const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
   recordLayerNum(data);
   let tempLayer = 1;
-  let countY = 100;
+  let countY = 0;
   // let rankNode = [];
   // 计算Y轴每个的间距, 这里需要兼容拖拽画布的位置！！
   if (!nodeId) {
@@ -681,9 +683,12 @@ const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
     const rankNode = data.nodes.map((d) => {
       d.x = d.layer * 220;
       if (tempLayer === d.layer) {
-        countY += (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);
+        // countY += (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);
+        countY += (d.layer === 1 ? maxYHeight / 2 : maxYHeight)/ layerCollect.value.get(d.layer);
+        console.log('countY', maxYHeight / layerCollect.value.get(d.layer))
       } else {
-        countY = (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);
+        // countY = (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);
+        countY = ballSize;  // 小球的大小
       }
       d.y = countY;
       tempLayer = d.layer;
@@ -703,7 +708,9 @@ const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
     let countY = 0;
     sameCdLayerNodeData.forEach((d, idx) => {
       // 先算出第一个基准Y轴的起始点, 通过当前有层级有几个子节点来计算
-      countY += 600 / layerCollect.value.get(currentLayer);
+      // countY += 600 / layerCollect.value.get(currentLayer);
+      countY += idx === 0 ? ballSize : maxYHeight / layerCollect.value.get(currentLayer)
+
       d.y = countY;
       d.x = d.parentNode.x + 220;
     });
