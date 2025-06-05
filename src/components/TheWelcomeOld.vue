@@ -417,15 +417,15 @@ onMounted(() => {
       // 启用自动层级检测
       sortByCombo: true,
     },
-    // defaultNode: { type: "expand-node", size: 20 },
-    defaultNode: {
-      type: "circle",
-      size: 40,
-      style: {
-        fill: "#C6E5FF",
-        stroke: "#5B8FF9",
-      },
-    },
+    defaultNode: { type: "expand-node", size: 20 },
+    // defaultNode: {
+    //   type: "circle",
+    //   size: 40,
+    //   style: {
+    //     fill: "#C6E5FF",
+    //     stroke: "#5B8FF9",
+    //   },
+    // },
     defaultEdge: {
       type: "line",
       style: {
@@ -482,7 +482,6 @@ onMounted(() => {
   // };
 
   const safeUpdateGraph = () => {
-    debugger
     if (!graph.value || !graph.value.changeData) return;
 
     // 数据格式转换（兼容4.x）
@@ -502,11 +501,14 @@ onMounted(() => {
     );
 
     try {
-      graph.value.changeData({
-        nodes: formattedNodes,
-        edges: validEdges,
-      });
+      // graph.value.changeData({
+      //   nodes: formattedNodes,
+      //   edges: validEdges,
+      // });
       // graph.value.refreshPositions(); // 关键方法
+      console.log('')
+      graph.value.data(nodeData);
+      graph.value.render();
     } catch (err) {
       console.error("更新失败:", err);
       // initGraph(); // 重建实例
@@ -535,11 +537,12 @@ onMounted(() => {
           loadingNodes.add(nodeId);
           fetchChildren(nodeId)
             .then(async (children) => {
+              console.log('fetchChildren', children)
               // 更新数据源，添加children
               const parentNode = nodeData.nodes.find((n) => n.id === nodeId);
               // nodeData.nodes.push(...data.nodes);
               // nodeData.edges.push(...data.edges);
-              children.forEach((child) => {
+              children.nodes.forEach((child) => {
                 if (!nodeData.nodes.some((n) => n.id === child.id)) {
                   nodeData.nodes.push({
                     ...child,
@@ -547,14 +550,11 @@ onMounted(() => {
                     y: null,
                   });
                 }
-                nodeData.edges.push({
-                  source: nodeId,
-                  target: child.id,
-                });
               });
+              nodeData.edges = [...nodeData.edges, ...children.edges];
               parentNode.children = [
                 ...(parentNode.children || []),
-                ...children.map((c) => c.id),
+                ...children.nodes.map((c) => c.id),
               ];
               console.log("nodeData", nodeData, children);
               // 重新渲染
@@ -580,7 +580,7 @@ onMounted(() => {
           loadingNodes.delete(nodeId);
         }
       }
-      return;
+      // return;
       collapsedNodes.has(nodeId)
         ? expandNode(nodeId)
         : collapseRightChildren(nodeId);

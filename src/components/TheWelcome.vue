@@ -7,26 +7,7 @@
 </template>
   
   <script setup>
-/*
-  注意点：
-  1、 默认几层需要后端判断
-  2、 默认展开三层，第三层需要给我hasChildren字段来显示扩展按钮
-  
-  实现复杂功能点：
-  1、展开收起需要收起子节点和其节点下所有有关联的连接线
-  2、环形关联前提下，需要从左向右按照层次布局
-  3、点击节点有小球流动动画，并且在drage布局情况下需要手动计算路径走势
-  4、动画需要判断按方向走势，多路径走势
-  5、拖拽节点时候需要重新计算路径小球动画走势
-  6、点击多次拖拽多次需要删除之前小球实例，重绘生成，不会会生成多个小球动画
-  7、支持画布拖拽，缩放，自适应
-  8、动态获取数据需要考虑：
-      添加了fetchChildren模拟API请求
-      扩展handleNodeClick处理动态加载逻辑
-      使用loadingNodes集合防止重复请求
-      检查现有子节点避免重复加载
-      添加加载状态可视化（需在节点绘制代码中添加loading图标）
-  */
+
 
 import { ref, onMounted, reactive, nextTick } from "vue";
 import G6 from "@antv/g6";
@@ -150,8 +131,7 @@ G6.registerNode("expand-node", {
         // width: 10,
         // textBaseline: "top", // 文本对齐基准线:ml-citation{ref="6" data="citationList"}
         // textAlign: "left",
-        // textBaseline: 'top',
-        width: 30, // 换行宽度阈值
+        // width: 30, // 换行宽度阈值
         textWrap: {
           maxWidth: 30,
           autoWrap: true,
@@ -483,7 +463,7 @@ const initGraph = () => {
 
   // 拖拽时实时更新所有边动画
   graph.value.on("node:drag", (e) => {
-    console.log("node:drag", e);
+    // console.log("node:drag", e);
     const nodeId = e.item.getModel().id;
     graph.value.getEdges().forEach((edge) => {
       if (edge.getModel().source === nodeId) {
@@ -620,25 +600,6 @@ const handleNodeClick = (e) => {
 };
 // 动态计算节点排序！这里必须是全部数据因为设置到动态加载部分数据，没办法部分排序会出问题
 
-// const matrix = graph.value.getGroup().getMatrix();
-//     transformTracker.matrix = matrix;
-
-//     // 实时输出节点绝对坐标
-//     graph.value.getNodes().forEach((node) => {
-//       const origin = transformTracker.nodes.get(node.getID());
-//       const realPos = {
-//         x: origin.x + matrix[6],
-//         y: origin.y + matrix[7],
-//       };
-//       nodeData.nodes.forEach((n) => {
-//         if (node.getID() === n.id) {
-//           n.x = realPos.x;
-//           n.y = realPos.y;
-//           n.hasDraged = true; // 标记拖拽过的节点
-//         }
-//       });
-//     });
-
 // 节点展开
 const handleExpand = async (node) => {
   const nodeId = node.id;
@@ -740,15 +701,8 @@ const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
     // 按照父节点Y轴从小到大排序
     sameCdLayerNodeData.sort((a, b) => a.parentNode.y - b.parentNode.y);
     let countY = 0;
-    let baseY = 0;
     sameCdLayerNodeData.forEach((d, idx) => {
       // 先算出第一个基准Y轴的起始点, 通过当前有层级有几个子节点来计算
-      if (idx === 0)
-        baseY =
-          d.parentNode.y - (layerCollect.value.get(currentLayer) / 2) * 38;
-      // const baseY = idx === 0 ?
-      //   d.parentNode.y - (data.nodes.length - data.nodes.length / 2) * 38;
-      // countY += idx === 0 ? baseY : 76;
       countY += 600 / layerCollect.value.get(currentLayer);
       d.y = countY;
       d.x = d.parentNode.x + 220;
