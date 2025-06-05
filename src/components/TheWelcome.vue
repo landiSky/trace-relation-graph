@@ -16,6 +16,7 @@ import VueShape from './InfoSelect.vue';
 const container = ref(null);
 const graph = ref(null);
 const ballSize = 30; // 每个节点小球的大小
+const baseSep = 50; // Y轴溢出小球的间距基准
 const maxYHeight = window.innerHeight; // 设置小球Y轴的最大总高度
 let activeNodeId = ref(null);
 let ballAnimation = null;
@@ -682,13 +683,22 @@ const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
     // 初始化 默认展示3层
     const rankNode = data.nodes.map((d) => {
       d.x = d.layer * 220;
+      const isOverClientaHeight = window.innerHeight - (layerCollect.value.get(d.layer) * (ballSize + baseSep) - baseSep) < 0; 
+      const restBallNum = Math.floor((window.innerHeight - (layerCollect.value.get(d.layer) * (ballSize + baseSep) - baseSep)) / (ballSize + baseSep));
       if (tempLayer === d.layer) {
-        // countY += (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);
-        countY += (d.layer === 1 ? maxYHeight / 2 : maxYHeight)/ layerCollect.value.get(d.layer);
-        console.log('countY', maxYHeight / layerCollect.value.get(d.layer))
+        // countY += (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);   
+        // 如果整体整屏高度处于层数加上节点间隔小于1代表一屏放不下，需要让小球Y轴叠加计算   
+        if(!isOverClientaHeight) {
+          countY += (d.layer === 1 ? maxYHeight / 2 : maxYHeight)/ layerCollect.value.get(d.layer);
+        } else {
+          // countY += (ballSize + baseSep);
+          countY += (ballSize + baseSep);
+        }
       } else {
+        // 每层的第一个小球如果按照溢出为负数计算    
         // countY = (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);
-        countY = ballSize;  // 小球的大小
+        if(!isOverClientaHeight) countY = (ballSize + baseSep)  
+        else countY =  (restBallNum * (ballSize + baseSep)) / 2 
       }
       d.y = countY;
       tempLayer = d.layer;
@@ -706,11 +716,16 @@ const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
     // 按照父节点Y轴从小到大排序
     sameCdLayerNodeData.sort((a, b) => a.parentNode.y - b.parentNode.y);
     let countY = 0;
+    const isOverClientaHeight = window.innerHeight - (layerCollect.value.get(currentLayer) * (ballSize + baseSep) - baseSep) < 0; 
+    const restBallNum = Math.floor((window.innerHeight - (layerCollect.value.get(currentLayer) * (ballSize + baseSep) - baseSep)) / (ballSize + baseSep));
     sameCdLayerNodeData.forEach((d, idx) => {
       // 先算出第一个基准Y轴的起始点, 通过当前有层级有几个子节点来计算
-      // countY += 600 / layerCollect.value.get(currentLayer);
-      countY += idx === 0 ? ballSize : maxYHeight / layerCollect.value.get(currentLayer)
-
+      // countY += idx === 0 ? ballSize : maxYHeight / layerCollect.value.get(currentLayer)
+      if(!isOverClientaHeight) {
+        countY += idx === 0 ? ballSize : maxYHeight / layerCollect.value.get(currentLayer);
+      } else {
+        countY += idx === 0 ? (restBallNum * (ballSize + baseSep)) / 2 : (ballSize + baseSep);
+      }
       d.y = countY;
       d.x = d.parentNode.x + 220;
     });
