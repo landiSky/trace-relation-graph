@@ -1,25 +1,33 @@
 
 <template>
   <div ref="container" class="graph-container">
-    <VueShape v-if="activeNode" class="vue-node" :nodeInfo="activeNode" :offset="graphMoveDelta"></VueShape>
+    <VueShape
+      v-if="activeNode"
+      class="vue-node"
+      :nodeInfo="activeNode"
+      :offset="graphMoveDelta"
+    ></VueShape>
   </div>
-  
 </template>
   
   <script setup>
-
-
-import { ref, onMounted, reactive, nextTick } from "vue";
+import { ref, onMounted, reactive } from "vue";
 import G6 from "@antv/g6";
-import VueShape from './InfoSelect.vue';
+import VueShape from "./InfoSelect.vue";
+import insertCss from "insert-css";
+
+insertCss(`
+  .g6-component-toolbar li {
+    list-style-type: none !important;
+  }
+`);
 
 const container = ref(null);
 const graph = ref(null);
 const ballSize = 30; // 每个节点小球的大小
 const baseSep = 50; // Y轴溢出小球的间距基准
-const maxYHeight = window.innerHeight; // 设置小球Y轴的最大总高度
+const maxYHeight = window.innerHeight - 50; // 设置小球Y轴的最大总高度
 let activeNodeId = ref(null);
-let ballAnimation = null;
 // 初始化画布矩阵跟踪器
 const transformTracker = reactive({
   matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
@@ -27,10 +35,6 @@ const transformTracker = reactive({
 });
 
 const activeNode = ref(null);
-
-const startPosition = ref({ x: 0, y: 0 });
-const startClientPosition = ref({ x: 0, y: 0 });
-const endPosition = ref({ x: 0, y: 0 });
 //画布移动的偏移量
 const graphMoveDelta = ref({ dx: 0, dy: 0 });
 
@@ -44,6 +48,76 @@ const nodeData = reactive({
   nodes: [],
   edges: [],
 });
+
+// const toolbar = new G6.ToolBar({
+//   position: { x: window.innerWidth / 2, y: window.innerHeight - 50 },
+// });
+const tc = document.createElement("div");
+tc.id = "toolbarContainer";
+document.body.appendChild(tc);
+
+// 工具栏的设置
+const toolbar = new G6.ToolBar({
+  container: tc,
+  position: { x: window.innerWidth / 2, y: window.innerHeight - 50 },
+  getContent: () => {
+    return `
+      <ul>
+        <li code='zoom-out'>放大</li>
+        <input type='range' code='zoom-slider' id='zoom-slider' min='0.1' max='2' step='0.1' value='1'/>
+        <li code='zoom-in'>缩小</li>
+        <li code='fit'>适应画布</li>
+        <li code='redo'>重置视图</li>
+      </ul>
+    `;
+  },
+  handleClick: (code, graph) => {
+    if (code === "zoom-out") {
+      console.log('zoom-in', code)
+      toolbar.zoomOut();
+      updateSliderValue();
+    } else if (code === "zoom-in") {
+      // 自定义 undo
+      toolbar.zoomIn();
+      updateSliderValue();
+    } else if (code === "fit") {
+      graph.fitView();
+      setTimeout(updateSliderValue, 500);
+    } else if (code === "redo") {
+      console.log('redo')
+      // toolbar.redo();
+      initGraph();
+      updateSliderValue();
+    } else {
+      // 其他操作保持默认不变
+      toolbar.handleDefaultOperator(code);
+    }
+  },
+});
+
+function updateSliderValue() {
+  if (!graph.value) return;
+  const slider = document.getElementById('zoom-slider');
+  if (slider) {
+    const currentZoom = graph.value.getZoom();
+    slider.value = currentZoom.toFixed(1);
+  }
+}
+
+// 监听进度条缩放
+const addSliderEventListener = () => {
+  const slider = document.getElementById('zoom-slider');
+  console.log('slider', slider)
+  if (slider) {
+    slider.addEventListener('input', (event) => {
+      const zoomValue = parseFloat(event.target.value);
+      graph.value.zoomTo(zoomValue);
+      console.log('Zoom value changed to:', zoomValue);
+    });
+  } else {
+    console.error('Failed to find zoom-slider element on the DOM.');
+  }
+};
 
 const tooltip = new G6.Tooltip({
   offsetX: 10,
@@ -63,12 +137,13 @@ const tooltip = new G6.Tooltip({
       outDiv.innerHTML = `${model.label}<br/>${model.code}`;
       // 创建可点击的文字
       const clickableText = document.createElement("span");
-      clickableText.innerHTML = "<span style='color: #1890ff; cursor: pointer;margin-left: 5px;'>查看详情</span>";
+      clickableText.innerHTML =
+        "<span style='color: #1890ff; cursor: pointer;margin-left: 5px;'>查看详情</span>";
       // 添加点击事件
       clickableText.addEventListener("click", (event) => {
         // 阻止事件冒泡，避免触发节点的点击事件
         event.stopPropagation();
-        const tooltipDom = document.querySelector('.g6-component-tooltip');
+        const tooltipDom = document.querySelector(".g6-component-tooltip");
         if (tooltipDom) {
           // 获取tooltip的位置信息
           const tooltipRect = tooltipDom.getBoundingClientRect();
@@ -78,13 +153,13 @@ const tooltip = new G6.Tooltip({
           // 设置activeNode的坐标为tooltip左下角的坐标
           activeNode.value.x = tooltipRect.left + 0;
           activeNode.value.y = tooltipRect.bottom - 20;
-          console.log('点击查看详情 - tooltip左下角坐标:', {
+          console.log("点击查看详情 - tooltip左下角坐标:", {
             x: tooltipRect.left,
-            y: tooltipRect.bottom
+            y: tooltipRect.bottom,
           });
         }
       });
-      
+
       // 将可点击文字添加到tooltip内容中
       outDiv.appendChild(clickableText);
     } else {
@@ -199,7 +274,6 @@ G6.registerNode("expand-node", {
     }
   },
 });
-
 
 // 注册自定义圆弧连接线类型
 G6.registerEdge("arc-edge", {
@@ -420,9 +494,15 @@ const initGraph = () => {
   graph.value = new G6.Graph({
     container: container.value,
     width: window.innerWidth,
-    height: window.innerHeight,
+    height: window.innerHeight - 50,
     modes: {
-      default: ["click-select", "drag-node", "drag-canvas", ],//"zoom-canvas"
+      default: [
+        "click-select",
+        "drag-node",
+        "drag-canvas",
+        "shortcuts-call",
+        "zoom-canvas",
+      ], //"zoom-canvas"
     },
     layout: {
       nodesep: 20,
@@ -432,15 +512,17 @@ const initGraph = () => {
       // 启用自动层级检测
       sortByCombo: true,
     },
+    // fitCenter: true,
     animate: true,
     animateCfg: {
       duration: 500, // 动画持续时间（毫秒）
-      easing: 'easeCubic', // 动画缓动效果
+      easing: "easeCubic", // 动画缓动效果
     },
-    plugins: [tooltip],
+
+    plugins: [tooltip, toolbar],
     defaultNode: {
       type: "expand-node",
-      size: ballSize,  // 设置小球的大小
+      size: ballSize, // 设置小球的大小
     },
     defaultEdge: {
       type: "arc-edge",
@@ -473,6 +555,10 @@ const initGraph = () => {
         // updateEdgeAnimation(edge, nodeId);
       }
     });
+  });
+
+  graph.value.on('wheelzoom', (evt) => {
+     updateSliderValue();
   });
 
   // 点击节点触发关联边动画
@@ -683,22 +769,31 @@ const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
     // 初始化 默认展示3层
     const rankNode = data.nodes.map((d) => {
       d.x = d.layer * 220;
-      const isOverClientaHeight = window.innerHeight - (layerCollect.value.get(d.layer) * (ballSize + baseSep) - baseSep) < 0; 
-      const restBallNum = Math.floor((window.innerHeight - (layerCollect.value.get(d.layer) * (ballSize + baseSep) - baseSep)) / (ballSize + baseSep));
+      const isOverClientaHeight =
+        window.innerHeight -
+          (layerCollect.value.get(d.layer) * (ballSize + baseSep) - baseSep) <
+        0;
+      const restBallNum = Math.floor(
+        (window.innerHeight -
+          (layerCollect.value.get(d.layer) * (ballSize + baseSep) - baseSep)) /
+          (ballSize + baseSep)
+      );
       if (tempLayer === d.layer) {
-        // countY += (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);   
-        // 如果整体整屏高度处于层数加上节点间隔小于1代表一屏放不下，需要让小球Y轴叠加计算   
-        if(!isOverClientaHeight) {
-          countY += (d.layer === 1 ? maxYHeight / 2 : maxYHeight)/ layerCollect.value.get(d.layer);
+        // countY += (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);
+        // 如果整体整屏高度处于层数加上节点间隔小于1代表一屏放不下，需要让小球Y轴叠加计算
+        if (!isOverClientaHeight) {
+          countY +=
+            (d.layer === 1 ? maxYHeight / 2 : maxYHeight) /
+            layerCollect.value.get(d.layer);
         } else {
           // countY += (ballSize + baseSep);
-          countY += (ballSize + baseSep);
+          countY += ballSize + baseSep;
         }
       } else {
-        // 每层的第一个小球如果按照溢出为负数计算    
+        // 每层的第一个小球如果按照溢出为负数计算
         // countY = (d.layer <= 1 ? 300 : 600) / layerCollect.value.get(d.layer);
-        if(!isOverClientaHeight) countY = (ballSize + baseSep)  
-        else countY =  (restBallNum * (ballSize + baseSep)) / 2 
+        if (!isOverClientaHeight) countY = ballSize + baseSep;
+        else countY = (restBallNum * (ballSize + baseSep)) / 2;
       }
       d.y = countY;
       tempLayer = d.layer;
@@ -716,15 +811,30 @@ const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
     // 按照父节点Y轴从小到大排序
     sameCdLayerNodeData.sort((a, b) => a.parentNode.y - b.parentNode.y);
     let countY = 0;
-    const isOverClientaHeight = window.innerHeight - (layerCollect.value.get(currentLayer) * (ballSize + baseSep) - baseSep) < 0; 
-    const restBallNum = Math.floor((window.innerHeight - (layerCollect.value.get(currentLayer) * (ballSize + baseSep) - baseSep)) / (ballSize + baseSep));
+    const isOverClientaHeight =
+      window.innerHeight -
+        (layerCollect.value.get(currentLayer) * (ballSize + baseSep) -
+          baseSep) <
+      0;
+    const restBallNum = Math.floor(
+      (window.innerHeight -
+        (layerCollect.value.get(currentLayer) * (ballSize + baseSep) -
+          baseSep)) /
+        (ballSize + baseSep)
+    );
     sameCdLayerNodeData.forEach((d, idx) => {
       // 先算出第一个基准Y轴的起始点, 通过当前有层级有几个子节点来计算
       // countY += idx === 0 ? ballSize : maxYHeight / layerCollect.value.get(currentLayer)
-      if(!isOverClientaHeight) {
-        countY += idx === 0 ? ballSize : maxYHeight / layerCollect.value.get(currentLayer);
+      if (!isOverClientaHeight) {
+        countY +=
+          idx === 0
+            ? ballSize
+            : maxYHeight / layerCollect.value.get(currentLayer);
       } else {
-        countY += idx === 0 ? (restBallNum * (ballSize + baseSep)) / 2 : (ballSize + baseSep);
+        countY +=
+          idx === 0
+            ? (restBallNum * (ballSize + baseSep)) / 2
+            : ballSize + baseSep;
       }
       d.y = countY;
       d.x = d.parentNode.x + 220;
@@ -760,24 +870,24 @@ const handleNodeSort = (data, nodeId, hasExist, currentLayer) => {
 };
 
 function formatString(input) {
-    if (typeof input !== 'string' || !input) return input;
-    
-    const chars = [...input]; // 正确处理Unicode字符
-    const length = chars.length;
-    
-    if (length <= 4) {
-        return input; // 不超过4个字符直接返回
-    }
-    
-    if (length > 8) {
-        // 前4个字符 + 换行 + 第5-7个字符 + 省略号
-        return chars.slice(0, 4).join('') + '\n' + 
-               chars.slice(4, 7).join('') + '...';
-    }
-    
-    // 长度在5-8之间：第4个后加换行
-    return chars.slice(0, 4).join('') + '\n' + 
-           chars.slice(4).join('');
+  if (typeof input !== "string" || !input) return input;
+
+  const chars = [...input]; // 正确处理Unicode字符
+  const length = chars.length;
+
+  if (length <= 4) {
+    return input; // 不超过4个字符直接返回
+  }
+
+  if (length > 8) {
+    // 前4个字符 + 换行 + 第5-7个字符 + 省略号
+    return (
+      chars.slice(0, 4).join("") + "\n" + chars.slice(4, 7).join("") + "..."
+    );
+  }
+
+  // 长度在5-8之间：第4个后加换行
+  return chars.slice(0, 4).join("") + "\n" + chars.slice(4).join("");
 }
 onMounted(async () => {
   // 模拟API请求获取子节点
@@ -786,25 +896,32 @@ onMounted(async () => {
   // const sameLayerMaxCount = 10; // 一屏竖向最大可放数量
   response.json().then((data) => {
     handleNodeSort(data);
-
     // nodeData.edges = data.edges;
     // nodeData.nodes = nodes;
     // initGraph();
+    addSliderEventListener();
   });
 });
 
 if (typeof window !== "undefined")
   window.onresize = () => {
     if (!graph.value || graph.value.get("destroyed")) return;
-    if (!container || !container.scrollWidth || !container.scrollHeight) return;
-    graph.value.changeSize(container.scrollWidth, container.scrollHeight);
+    if (
+      !container.value ||
+      !container.value.scrollWidth ||
+      !container.value.scrollHeight
+    )
+      return;
+    graph.value.changeSize(
+      container.value.scrollWidth,
+      container.value.scrollHeight
+    );
   };
 </script>
   
 <style scoped>
 .graph-container {
   position: relative;
-  
 }
 </style>
   
