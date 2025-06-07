@@ -15,6 +15,7 @@ import { ref, onMounted, reactive } from "vue";
 import G6 from "@antv/g6";
 import VueShape from "./InfoSelect.vue";
 import insertCss from "insert-css";
+let initialZoom = 1; // 此处新增一个变量来存储初始缩放比例
 
 insertCss(`
   .g6-component-toolbar li {
@@ -28,11 +29,6 @@ const ballSize = 30; // 每个节点小球的大小
 const baseSep = 50; // Y轴溢出小球的间距基准
 const maxYHeight = window.innerHeight - 50; // 设置小球Y轴的最大总高度
 let activeNodeId = ref(null);
-// 初始化画布矩阵跟踪器
-const transformTracker = reactive({
-  matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-  nodes: new Map(), // 存储节点初始坐标
-});
 
 const activeNode = ref(null);
 //画布移动的偏移量
@@ -56,48 +52,17 @@ const tc = document.createElement("div");
 tc.id = "toolbarContainer";
 document.body.appendChild(tc);
 
-// 工具栏的设置
-const toolbar = new G6.ToolBar({
-  container: tc,
-  position: { x: window.innerWidth / 2, y: window.innerHeight - 50 },
-  getContent: () => {
-    return `
-      <ul>
-        <li code='zoom-out'>放大</li>
-        <input type='range' code='zoom-slider' id='zoom-slider' min='0.1' max='2' step='0.1' value='1'/>
-        <li code='zoom-in'>缩小</li>
-        <li code='fit'>适应画布</li>
-        <li code='redo'>重置视图</li>
-      </ul>
-    `;
-  },
-  handleClick: (code, graph) => {
-    if (code === "zoom-out") {
-      console.log('zoom-in', code)
-      toolbar.zoomOut();
-      updateSliderValue();
-    } else if (code === "zoom-in") {
-      // 自定义 undo
-      toolbar.zoomIn();
-      updateSliderValue();
-    } else if (code === "fit") {
-      graph.fitView();
-      setTimeout(updateSliderValue, 500);
-    } else if (code === "redo") {
-      console.log('redo')
-      // toolbar.redo();
-      initGraph();
-      updateSliderValue();
-    } else {
-      // 其他操作保持默认不变
-      toolbar.handleDefaultOperator(code);
-    }
-  },
-});
+//重置画布
+function resetView() {
+  if (graph.value) {
+    graph.value.fitView(); // 将图适配到画布中心
+    graph.value.zoomTo(initialZoom); // 将缩放比例重置为初始值
+  }
+}
 
 function updateSliderValue() {
   if (!graph.value) return;
-  const slider = document.getElementById('zoom-slider');
+  const slider = document.getElementById("zoom-slider");
   if (slider) {
     const currentZoom = graph.value.getZoom();
     slider.value = currentZoom.toFixed(1);
@@ -106,16 +71,16 @@ function updateSliderValue() {
 
 // 监听进度条缩放
 const addSliderEventListener = () => {
-  const slider = document.getElementById('zoom-slider');
-  console.log('slider', slider)
+  const slider = document.getElementById("zoom-slider");
+  console.log("slider", slider);
   if (slider) {
-    slider.addEventListener('input', (event) => {
+    slider.addEventListener("input", (event) => {
       const zoomValue = parseFloat(event.target.value);
       graph.value.zoomTo(zoomValue);
-      console.log('Zoom value changed to:', zoomValue);
+      console.log("Zoom value changed to:", zoomValue);
     });
   } else {
-    console.error('Failed to find zoom-slider element on the DOM.');
+    console.error("Failed to find zoom-slider element on the DOM.");
   }
 };
 
@@ -346,22 +311,6 @@ function addAnimationBall(group, path) {
   );
 }
 
-// 清除所有非活跃节点动画
-const clearInactiveAnimations = () => {
-  animationCache.forEach((value, nodeId) => {
-    if (nodeId !== activeNodeId.value) {
-      value.anim.stop();
-      value.circle.remove();
-      animationCache.delete(nodeId);
-    }
-  });
-};
-
-// 判断节点是否在右侧
-const isNodeOnRight = (parentNode, childNode) => {
-  return childNode.getModel().x > parentNode.getModel().x;
-};
-
 const getAllChildren = (parentNodeId, childNode) => {
   const result = [];
   const children = collapsedNodes.get(parentNodeId)?.nodes || [];
@@ -420,21 +369,6 @@ const collapseRightChildren = (nodeId) => {
   nodeData.edges = nodeData.edges.fill((e) => !edgesIds.includes(e.id));
 };
 
-// 定义正三角形箭头路径（高度为d）
-const createEquilateralArrow = (d) => {
-  const height = d; // 箭头高度（顶点到底边垂直距离）
-  const sideLength = (2 * height) / Math.sqrt(3); // 计算边长
-  const halfBase = sideLength / 2; // 底边一半长度
-
-  // SVG路径指令
-  return [
-    ["M", 0, 0], // 起始点为顶点（箭头尖端）
-    ["L", -halfBase, height], // 左下角
-    ["L", halfBase, height], // 右下角
-    ["Z"], // 闭合路径
-  ];
-};
-
 // 模拟API请求获取子节点
 const fetchChildren = async (url) => {
   const response = await fetch(url);
@@ -491,6 +425,43 @@ const initGraph = () => {
     graph.value.destroy();
   }
 
+  // 工具栏的设置
+  const toolbar = new G6.ToolBar({
+    container: tc,
+    position: { x: window.innerWidth / 2, y: window.innerHeight - 50 },
+    getContent: () => {
+      return `
+      <ul>
+        <li code='zoom-out'>放大</li>
+        <input type='range' code='zoom-slider' id='zoom-slider' min='0.1' max='2' step='0.1' value='1'/>
+        <li code='zoom-in'>缩小</li>
+        <li code='fit'>适应画布</li>
+        <li code='redo'>重置视图</li>
+      </ul>
+    `;
+    },
+    handleClick: (code, graph) => {
+      if (code === "zoom-out") {
+        console.log("zoom-in", code);
+        toolbar.zoomOut();
+        updateSliderValue();
+      } else if (code === "zoom-in") {
+        // 自定义 undo
+        toolbar.zoomIn();
+        updateSliderValue();
+      } else if (code === "fit") {
+        graph.fitView();
+        setTimeout(updateSliderValue, 500);
+      } else if (code === "redo") {
+        console.log("redo");
+        resetGraph();
+      } else {
+        // 其他操作保持默认不变
+        toolbar.handleDefaultOperator(code);
+      }
+    },
+  });
+
   graph.value = new G6.Graph({
     container: container.value,
     width: window.innerWidth,
@@ -546,6 +517,14 @@ const initGraph = () => {
     },
   });
 
+  // 监听 afterrender 事件，记录初始缩放比例
+  graph.value.on("afterrender", () => {
+    if (graph.value) {
+      initialZoom = graph.value.getZoom(); // 获取当前缩放比例并存储为初始值
+      // graph.value.fitCenter(); // 将图的中心对齐到画布中心
+    }
+  });
+
   // 拖拽时实时更新所有边动画
   graph.value.on("node:drag", (e) => {
     // console.log("node:drag", e);
@@ -557,8 +536,8 @@ const initGraph = () => {
     });
   });
 
-  graph.value.on('wheelzoom', (evt) => {
-     updateSliderValue();
+  graph.value.on("wheelzoom", (evt) => {
+    updateSliderValue();
   });
 
   // 点击节点触发关联边动画
@@ -889,18 +868,20 @@ function formatString(input) {
   // 长度在5-8之间：第4个后加换行
   return chars.slice(0, 4).join("") + "\n" + chars.slice(4).join("");
 }
-onMounted(async () => {
+
+const resetGraph = async () => {
   // 模拟API请求获取子节点
   const response = await fetch("/data1.json");
   // const layerCollect = {};
   // const sameLayerMaxCount = 10; // 一屏竖向最大可放数量
   response.json().then((data) => {
     handleNodeSort(data);
-    // nodeData.edges = data.edges;
-    // nodeData.nodes = nodes;
-    // initGraph();
     addSliderEventListener();
   });
+};
+
+onMounted(async () => {
+  await resetGraph()
 });
 
 if (typeof window !== "undefined")
