@@ -52,14 +52,6 @@ const tc = document.createElement("div");
 tc.id = "toolbarContainer";
 document.body.appendChild(tc);
 
-//重置画布
-function resetView() {
-  if (graph.value) {
-    graph.value.fitView(); // 将图适配到画布中心
-    graph.value.zoomTo(initialZoom); // 将缩放比例重置为初始值
-  }
-}
-
 function updateSliderValue() {
   if (!graph.value) return;
   const slider = document.getElementById("zoom-slider");
@@ -72,12 +64,11 @@ function updateSliderValue() {
 // 监听进度条缩放
 const addSliderEventListener = () => {
   const slider = document.getElementById("zoom-slider");
-  console.log("slider", slider);
   if (slider) {
     slider.addEventListener("input", (event) => {
       const zoomValue = parseFloat(event.target.value);
       graph.value.zoomTo(zoomValue);
-      console.log("Zoom value changed to:", zoomValue);
+      // console.log("Zoom value changed to:", zoomValue);
     });
   } else {
     console.error("Failed to find zoom-slider element on the DOM.");
@@ -428,7 +419,7 @@ const initGraph = () => {
   // 工具栏的设置
   const toolbar = new G6.ToolBar({
     container: tc,
-    position: { x: window.innerWidth / 2, y: window.innerHeight - 50 },
+    position: { x: 20, y: window.innerHeight - 50 },
     getContent: () => {
       return `
       <ul>
@@ -442,7 +433,6 @@ const initGraph = () => {
     },
     handleClick: (code, graph) => {
       if (code === "zoom-out") {
-        console.log("zoom-in", code);
         toolbar.zoomOut();
         updateSliderValue();
       } else if (code === "zoom-in") {
@@ -453,7 +443,6 @@ const initGraph = () => {
         graph.fitView();
         setTimeout(updateSliderValue, 500);
       } else if (code === "redo") {
-        console.log("redo");
         resetGraph();
       } else {
         // 其他操作保持默认不变
@@ -875,13 +864,15 @@ const resetGraph = async () => {
   // const layerCollect = {};
   // const sameLayerMaxCount = 10; // 一屏竖向最大可放数量
   response.json().then((data) => {
+    // 重置按钮状态
+    collapsedNodes.clear();
     handleNodeSort(data);
     addSliderEventListener();
   });
 };
 
 onMounted(async () => {
-  await resetGraph()
+  await resetGraph();
 });
 
 if (typeof window !== "undefined")
