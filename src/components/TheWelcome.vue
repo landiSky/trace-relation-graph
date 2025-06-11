@@ -422,12 +422,42 @@ const initGraph = () => {
     position: { x: 20, y: window.innerHeight - 50 },
     getContent: () => {
       return `
-      <ul>
-        <li code='zoom-out'>放大</li>
-        <input type='range' code='zoom-slider' id='zoom-slider' min='0.1' max='2' step='0.1' value='1'/>
-        <li code='zoom-in'>缩小</li>
-        <li code='fit'>适应画布</li>
-        <li code='redo'>重置视图</li>
+      <ul class="toolbar-container" style="display:flex;align-items:center">
+        <li code='zoom-out' style="width: 35px; height: 0; margin-top: -10px">
+          <iconpark-icon name="zoom-out"
+              size="16"
+              class="icon-color"
+            >
+          </iconpark-icon>  
+        </li>
+        <input type='range' code='zoom-slider' id='zoom-slider' min='0.1' max='2' step='0.1' value='1' style="margin: 6px 0 0" />
+        <li code='zoom-in' style="width: 35px; height: 0; margin-top: -10px">
+          <iconpark-icon name="zoom-in"
+              size="16"
+              class="icon-color"
+            >
+          </iconpark-icon>    
+        </li>
+        <li code='fit' style="width: 102px; margin-right: 20px">
+          <span class='fit-button'>
+            <iconpark-icon name="fullscreen"
+              size="14"
+              class="full-screen"
+              style="vertical-align: text-bottom"
+            ></iconpark-icon>
+            适应画布     
+          </span>
+        </li>
+        <li code='redo' style="width: 102px">
+           <span class='reset-button'>
+            <iconpark-icon name="reset"
+              size="14"
+              class="reset"
+              style="vertical-align: text-bottom"
+            ></iconpark-icon>  
+            重置视图    
+          </span>  
+        </li>
       </ul>
     `;
     },
@@ -891,9 +921,60 @@ if (typeof window !== "undefined")
   };
 </script>
   
-<style scoped>
+<style>
 .graph-container {
   position: relative;
 }
+#toolbarContainer .g6-component-toolbar {
+  display: flex;
+  align-items: center;
+  border: 0;
+}
+
+#toolbarContainer .g6-component-toolbar #zoom-slider {
+  -webkit-appearance: none;
+  width: 148px; /* 进度条长度 */
+  height: 4px; /* 进度条高度 */
+  background-color: #eef2f1; /* 背景颜色为灰色 */
+  outline: none;
+  opacity: 0.7;
+  -webkit-transition: 0.2s;
+  transition: opacity 0.2s;
+  border-radius: 2px;
+  margin: 6px 10px;
+}
+
+#toolbarContainer .g6-component-toolbar #zoom-slider:hover {
+  opacity: 1;
+}
+
+#toolbarContainer .g6-component-toolbar #zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #4caf50; /* 滑块颜色为绿色，你可以调整这个颜色 */
+  cursor: pointer;
+}
+
+#toolbarContainer .g6-component-toolbar #zoom-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #4caf50; /* 滑块颜色为绿色，你可以调整这个颜色 */
+  cursor: pointer;
+}
+
+.fit-button,.reset-button {
+  display: inline-block;
+  width: 102px;
+  height: 32px;
+  border: 1px solid #00a57c;
+  line-height: 32px;
+  border-radius: 2px;
+  color: #00A57C;
+}
+
 </style>
   
