@@ -75,60 +75,6 @@ const addSliderEventListener = () => {
   }
 };
 
-const tooltip = new G6.Tooltip({
-  offsetX: 10,
-  offsetY: 10,
-  fixToNode: [1, 0.5],
-  // the types of items that allow the tooltip show up
-  // 允许出现 tooltip 的 item 类型
-  itemTypes: ["node"],
-  // custom the tooltip's content
-  // 自定义 tooltip 内容
-  getContent: (e) => {
-    const outDiv = document.createElement("div");
-    outDiv.style.width = "fit-content";
-    outDiv.style.height = "fit-content";
-    const model = e.item.getModel();
-    if (e.item.getType() === "node") {
-      outDiv.innerHTML = `${model.label}<br/>${model.code}`;
-      // 创建可点击的文字
-      const clickableText = document.createElement("span");
-      clickableText.innerHTML =
-        "<span style='color: #1890ff; cursor: pointer;margin-left: 5px;'>查看详情</span>";
-      // 添加点击事件
-      clickableText.addEventListener("click", (event) => {
-        // 阻止事件冒泡，避免触发节点的点击事件
-        event.stopPropagation();
-        const tooltipDom = document.querySelector(".g6-component-tooltip");
-        if (tooltipDom) {
-          // 获取tooltip的位置信息
-          const tooltipRect = tooltipDom.getBoundingClientRect();
-          // 设置activeNode的值为model
-          activeNode.value = model;
-
-          // 设置activeNode的坐标为tooltip左下角的坐标
-          activeNode.value.x = tooltipRect.left + 0;
-          activeNode.value.y = tooltipRect.bottom - 20;
-          console.log("点击查看详情 - tooltip左下角坐标:", {
-            x: tooltipRect.left,
-            y: tooltipRect.bottom,
-          });
-        }
-      });
-
-      // 将可点击文字添加到tooltip内容中
-      outDiv.appendChild(clickableText);
-    } else {
-      const source = e.item.getSource();
-      const target = e.item.getTarget();
-      outDiv.innerHTML = `来源：${source.getModel().name}<br/>去向：${
-        target.getModel().name
-      }`;
-    }
-    return outDiv;
-  },
-});
-
 // 自定义节点类型
 G6.registerNode("expand-node", {
   draw(cfg, group) {
@@ -478,6 +424,60 @@ const initGraph = () => {
         // 其他操作保持默认不变
         toolbar.handleDefaultOperator(code);
       }
+    },
+  });
+
+  const tooltip = new G6.Tooltip({
+    offsetX: 10,
+    offsetY: 10,
+    fixToNode: [1, 0.5],
+    // the types of items that allow the tooltip show up
+    // 允许出现 tooltip 的 item 类型
+    itemTypes: ["node"],
+    // custom the tooltip's content
+    // 自定义 tooltip 内容
+    getContent: (e) => {
+      const outDiv = document.createElement("div");
+      outDiv.style.width = "fit-content";
+      outDiv.style.height = "fit-content";
+      const model = e.item.getModel();
+      if (e.item.getType() === "node") {
+        outDiv.innerHTML = `${model.label}<br/>${model.code}`;
+        // 创建可点击的文字
+        const clickableText = document.createElement("span");
+        clickableText.innerHTML =
+          "<span style='color: #1890ff; cursor: pointer;margin-left: 5px;'>查看详情</span>";
+        // 添加点击事件
+        clickableText.addEventListener("click", (event) => {
+          // 阻止事件冒泡，避免触发节点的点击事件
+          event.stopPropagation();
+          const tooltipDom = document.querySelector(".g6-component-tooltip");
+          if (tooltipDom) {
+            // 获取tooltip的位置信息
+            const tooltipRect = tooltipDom.getBoundingClientRect();
+            // 设置activeNode的值为model
+            activeNode.value = model;
+
+            // 设置activeNode的坐标为tooltip左下角的坐标
+            activeNode.value.x = tooltipRect.left + 0;
+            activeNode.value.y = tooltipRect.bottom - 20;
+            console.log("点击查看详情 - tooltip左下角坐标:", {
+              x: tooltipRect.left,
+              y: tooltipRect.bottom,
+            });
+          }
+        });
+
+        // 将可点击文字添加到tooltip内容中
+        outDiv.appendChild(clickableText);
+      } else {
+        const source = e.item.getSource();
+        const target = e.item.getTarget();
+        outDiv.innerHTML = `来源：${source.getModel().name}<br/>去向：${
+          target.getModel().name
+        }`;
+      }
+      return outDiv;
     },
   });
 
@@ -966,15 +966,15 @@ if (typeof window !== "undefined")
   cursor: pointer;
 }
 
-.fit-button,.reset-button {
+.fit-button,
+.reset-button {
   display: inline-block;
   width: 102px;
   height: 32px;
   border: 1px solid #00a57c;
   line-height: 32px;
   border-radius: 2px;
-  color: #00A57C;
+  color: #00a57c;
 }
-
 </style>
   
