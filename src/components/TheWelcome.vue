@@ -412,7 +412,7 @@ const initGraph = () => {
         toolbar.zoomOut();
         updateSliderValue();
       } else if (code === "zoom-in") {
-        // 自定义 undo
+        // 自定义 
         toolbar.zoomIn();
         updateSliderValue();
       } else if (code === "fit") {
@@ -546,7 +546,6 @@ const initGraph = () => {
 
   // 拖拽时实时更新所有边动画
   graph.value.on("node:drag", (e) => {
-    // console.log("node:drag", e);
     const nodeId = e.item.getModel().id;
     graph.value.getEdges().forEach((edge) => {
       if (edge.getModel().source === nodeId) {

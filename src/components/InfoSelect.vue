@@ -16,7 +16,7 @@
   </template>
   
   <script setup>
-  import { computed, watch, defineProps } from "vue";
+  import { computed, watch, defineProps, onMounted } from "vue";
   const props = defineProps({
     nodeInfo: Object,
     offset: {
@@ -51,6 +51,10 @@
       return `${nodeY - shapeHeight - 90}px`;
     }
   });
+
+  onMounted(() => {
+    console.log('onmounted', props.nodeInfo)
+  })
 
 </script>
     
